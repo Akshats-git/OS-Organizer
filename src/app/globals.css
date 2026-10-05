@@ -1,26 +1,321 @@
 @import "tailwindcss";
 
+/*
+ * Theme: "Platform" — transit signage for open source work.
+ * Concrete page, signal-navy ink, and one validated color per repo line.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --page: #e7ebef;
+  --panel: #f6f8fa;
+  --panel-2: #edf1f5;
+  --ink: #14223d;
+  --ink-2: #44526b;
+  --ink-3: #5f6b80;
+  --rule: #d3dae3;
+  --rule-strong: #b6c0ce;
+  --focus: #2559d9;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --urgent: #b42318;
+  --urgent-bg: #fbe9e7;
+  --soon: #9a5a06;
+  --soon-bg: #fbf1dd;
+  --ok: #157f3b;
+  --ok-bg: #e4f3e8;
+
+  --line-0: #2559d9;
+  --line-1: #e8682a;
+  --line-2: #0e9f74;
+  --line-3: #b88200;
+  --line-4: #d2478f;
+  --line-5: #4e7f0e;
+  --line-6: #5346b8;
+  --line-7: #c8372d;
+  --on-line-0: #ffffff;
+  --on-line-1: #14223d;
+  --on-line-2: #14223d;
+  --on-line-3: #14223d;
+  --on-line-4: #ffffff;
+  --on-line-5: #ffffff;
+  --on-line-6: #ffffff;
+  --on-line-7: #ffffff;
+
+  --shadow-float: 0 1px 2px rgb(20 34 61 / 0.08), 0 12px 32px -8px rgb(20 34 61 / 0.22);
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --page: #0c121b;
+    --panel: #141c28;
+    --panel-2: #1a2433;
+    --ink: #e3e9f1;
+    --ink-2: #a9b4c5;
+    --ink-3: #8794a8;
+    --rule: #243043;
+    --rule-strong: #35435a;
+    --focus: #6f98f5;
+    --urgent: #f4857a;
+    --urgent-bg: #3a1a19;
+    --soon: #e9a952;
+    --soon-bg: #33260f;
+    --ok: #62cd88;
+    --ok-bg: #12301e;
+    --line-0: #4f80f0;
+    --line-1: #dd6930;
+    --line-2: #1a9c74;
+    --line-3: #b88508;
+    --line-4: #cf5590;
+    --line-5: #6e9e2a;
+    --line-6: #7a6de0;
+    --line-7: #e0564b;
+  --on-line-0: #0c121b;
+  --on-line-1: #0c121b;
+  --on-line-2: #0c121b;
+  --on-line-3: #0c121b;
+  --on-line-4: #0c121b;
+  --on-line-5: #0c121b;
+  --on-line-6: #0c121b;
+  --on-line-7: #0c121b;
+    --on-line-0: #0c121b;
+    --on-line-1: #0c121b;
+    --on-line-2: #0c121b;
+    --on-line-3: #0c121b;
+    --on-line-4: #0c121b;
+    --on-line-5: #0c121b;
+    --on-line-6: #0c121b;
+    --on-line-7: #0c121b;
+    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root[data-theme="dark"] {
+  --page: #0c121b;
+  --panel: #141c28;
+  --panel-2: #1a2433;
+  --ink: #e3e9f1;
+  --ink-2: #a9b4c5;
+  --ink-3: #8794a8;
+  --rule: #243043;
+  --rule-strong: #35435a;
+  --focus: #6f98f5;
+  --urgent: #f4857a;
+  --urgent-bg: #3a1a19;
+  --soon: #e9a952;
+  --soon-bg: #33260f;
+  --ok: #62cd88;
+  --ok-bg: #12301e;
+  --line-0: #4f80f0;
+  --line-1: #dd6930;
+  --line-2: #1a9c74;
+  --line-3: #b88508;
+  --line-4: #cf5590;
+  --line-5: #6e9e2a;
+  --line-6: #7a6de0;
+  --line-7: #e0564b;
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-focus: var(--focus);
+  --color-urgent: var(--urgent);
+  --color-urgent-bg: var(--urgent-bg);
+  --color-soon: var(--soon);
+  --color-soon-bg: var(--soon-bg);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-signage), var(--font-body), sans-serif;
+
+  /* Type scale: major third (1.25) from a 16px base. */
+  --text-2xs: 0.75rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 2.441rem;
+  --text-4xl: 3.052rem;
+
+  --radius-panel: 14px;
+  --radius-control: 8px;
+  --shadow-float: var(--shadow-float);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    font-feature-settings: "kern";
+    text-rendering: optimizeLegibility;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--focus) 28%, transparent);
+  }
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* A utility (not a component class) so responsive variants like md:panel work. */
+@utility panel {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-panel);
+}
+
+@layer components {
+  /* Display type: signage-condensed, used for names, stations and numerals. */
+  .type-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    line-height: 1.05;
+  }
+  .numerals {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-weight: 600;
+  }
+
+  .field {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-control);
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .field::placeholder {
+    color: var(--ink-3);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--focus) 22%, transparent);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    border-radius: var(--radius-control);
+    padding: 0.45rem 0.85rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: 1.2;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.55;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--page);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--ink) 86%, var(--page));
+  }
+  .btn-quiet {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule-strong);
+  }
+  .btn-quiet:hover:not(:disabled) {
+    background: var(--panel-2);
+    border-color: var(--ink-3);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-2);
+    padding-inline: 0.5rem;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--panel-2);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .link {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--rule-strong);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 150ms ease;
+  }
+  .link:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .kbd {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ink-3);
+    border: 1px solid var(--rule-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0 0.3rem;
+    line-height: 1.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
