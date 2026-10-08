@@ -3,10 +3,13 @@ import { ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { connection } from "next/server";
+import { LineBullet } from "@/components/line-bullet";
 import { AddEvent, CopyField, EventControls } from "@/components/program-widgets";
 import type { ProgramEvent } from "@/db/schema";
 import { getPrograms } from "@/lib/data";
+import { programShortName } from "@/lib/programs";
 import { daysUntil, formatDate } from "@/lib/time";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Programs" };
 
@@ -62,7 +65,7 @@ export default async function ProgramsPage() {
           </div>
           {programs.map((p) => (
             <div key={p.id} className="contents">
-              <span className="truncate py-3.5 text-sm font-semibold">{p.id === "gsoc" ? "GSoC" : p.id === "lfx" ? "LFX" : p.name}</span>
+              <span className="truncate py-3.5 text-sm font-semibold">{programShortName(p)}</span>
               <div className="relative">
                 <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-rule" />
                 <span aria-hidden className="absolute inset-y-0 w-[2px] -translate-x-1/2 bg-focus/60" style={{ left: `${todayX}%` }} />
@@ -94,7 +97,7 @@ export default async function ProgramsPage() {
       <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-10">
           {programs.map((p) => (
-            <section key={p.id} aria-labelledby={`p-${p.id}`}>
+            <section key={p.id} id={`program-${p.id}`} aria-labelledby={`p-${p.id}`} className="scroll-mt-8">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h2 id={`p-${p.id}`} className="type-display text-2xl">{p.name}</h2>
                 {p.url && (
@@ -102,9 +105,27 @@ export default async function ProgramsPage() {
                     Website <ExternalLink className="size-3" />
                   </a>
                 )}
-                <span className="text-sm text-ink-3">{p.orgCount ? `${p.orgCount} of your orgs` : "None of your orgs yet"}</span>
+                <span className="text-sm text-ink-3">
+                  {p.repos.length ? `${p.repos.length} of your lines` : "None of your lines yet"}
+                </span>
               </div>
               {p.summary && <p className="mt-1 max-w-[64ch] text-sm text-ink-2">{p.summary}</p>}
+              {p.repos.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {p.repos.map((r) => (
+                    <li key={r.id}>
+                      <Link
+                        href={`/repos/${r.slug}`}
+                        className="flex items-center gap-2 rounded-[var(--radius-control)] border border-rule-strong px-2 py-1 text-sm transition-colors hover:border-ink-3"
+                      >
+                        <LineBullet code={r.code} colorIndex={r.colorIndex} size="sm" />
+                        <span className="font-semibold">{r.name}</span>
+                        <span className="text-xs text-ink-3">{r.orgName}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {p.events.length > 0 && (
                 <ol className="mt-3 divide-y divide-rule border-y border-rule">
                   {p.events.map((e) => {

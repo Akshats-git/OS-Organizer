@@ -7,11 +7,12 @@ import { LineBullet } from "@/components/line-bullet";
 import { LoopSheet } from "@/components/loop-sheet";
 import { MiniLine } from "@/components/mini-line";
 import { getIntegrationStatus, getNetwork, getUpcoming } from "@/lib/data";
+import { NO_PROGRAM } from "@/lib/programs";
 import { age, daysUntil, formatDate } from "@/lib/time";
 
 export default async function TodayPage() {
   await connection();
-  const [{ lines, actions, waiting, loopEvents }, upcoming, status] = await Promise.all([getNetwork(), getUpcoming(4), getIntegrationStatus()]);
+  const [{ lines, groups, actions, waiting, loopEvents }, upcoming, status] = await Promise.all([getNetwork(), getUpcoming(4), getIntegrationStatus()]);
 
   const repos: RepoChip[] = lines.map((l) => ({ id: l.repo.id, code: l.repo.code, colorIndex: l.repo.colorIndex, name: l.repo.name }));
   const ages = Object.fromEntries([...actions, ...waiting].map((a) => [a.id, age(a.since)]));
@@ -93,18 +94,29 @@ export default async function TodayPage() {
                 <h2 id="network-title" className="text-sm font-semibold text-ink-2">Your lines</h2>
                 <Link href="/lines" className="link text-xs text-ink-2">Open the map</Link>
               </div>
-              <ul className="panel divide-y divide-rule">
-                {lines.map((l) => (
-                  <li key={l.repo.id}>
-                    <Link href={`/repos/${l.repo.slug}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-panel-2/60">
-                      <LineBullet code={l.repo.code} colorIndex={l.repo.colorIndex} size="sm" />
-                      <span className="w-[5.5rem] shrink-0 truncate text-sm font-semibold">{l.repo.name}</span>
-                      <MiniLine workflow={l.repo.workflow} colorIndex={l.repo.colorIndex} occupied={l.active.map((x) => x.stage)} className="flex-1" />
-                      <span className="w-12 shrink-0 text-right text-xs text-ink-3">{l.presence.label}</span>
-                    </Link>
-                  </li>
+              <div className="panel divide-y divide-rule">
+                {groups.map((group) => (
+                  <section key={group.key}>
+                    {groups.length > 1 && (
+                      <p className="type-display border-b border-rule bg-panel-2/60 px-4 py-1.5 text-xs tracking-[0.04em] text-ink-3">
+                        {group.key === NO_PROGRAM ? "No program" : group.label}
+                      </p>
+                    )}
+                    <ul className="divide-y divide-rule">
+                      {group.items.map((l) => (
+                        <li key={l.repo.id}>
+                          <Link href={`/repos/${l.repo.slug}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-panel-2/60">
+                            <LineBullet code={l.repo.code} colorIndex={l.repo.colorIndex} size="sm" />
+                            <span className="w-[5.5rem] shrink-0 truncate text-sm font-semibold">{l.repo.name}</span>
+                            <MiniLine workflow={l.repo.workflow} colorIndex={l.repo.colorIndex} occupied={l.active.map((x) => x.stage)} className="flex-1" />
+                            <span className="w-12 shrink-0 text-right text-xs text-ink-3">{l.presence.label}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
             </section>
           )}
         </aside>

@@ -59,6 +59,8 @@ export const repos = sqliteTable("repos", {
   orgId: integer("org_id")
     .notNull()
     .references(() => orgs.id, { onDelete: "cascade" }),
+  /** The program this repo is targeted at. A repo belongs to exactly one. */
+  programId: text("program_id").references(() => programs.id, { onDelete: "set null" }),
   owner: text("owner").notNull(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),

@@ -271,7 +271,7 @@ export function TouchContact({ id }: { id: number }) {
   );
 }
 
-export function RepoSettings({ repo }: { repo: Repo }) {
+export function RepoSettings({ repo, programs }: { repo: Repo; programs: { id: string; name: string }[] }) {
   const { run, pending } = useAction();
   return (
     <form
@@ -285,11 +285,22 @@ export function RepoSettings({ repo }: { repo: Repo }) {
             staleDays: Number(f.get("staleDays")),
             claimDays: Number(f.get("claimDays")),
             code: String(f.get("code")),
+            programId: String(f.get("programId") ?? ""),
             discordChannelUrl: String(f.get("discordChannelUrl") ?? ""),
           }),
         );
       }}
     >
+      <label className="block">
+        <span className="text-sm font-semibold">Program</span>
+        <span className="mb-1.5 block text-xs text-ink-3">Which program this repo is for. It files the line under that program everywhere.</span>
+        <select name="programId" defaultValue={repo.programId ?? ""} className="field">
+          <option value="">No program yet</option>
+          {programs.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </label>
       <label className="block">
         <span className="text-sm font-semibold">How it takes contributions</span>
         <select name="workflow" defaultValue={repo.workflow} className="field mt-1.5">

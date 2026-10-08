@@ -25,8 +25,13 @@ const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   await connection();
-  const { lines, inboxCount } = await getNetwork();
-  const repos = lines.map((l) => ({ id: l.repo.id, slug: l.repo.slug, code: l.repo.code, colorIndex: l.repo.colorIndex, name: l.repo.name, owner: l.repo.owner }));
+  const { groups, inboxCount } = await getNetwork();
+  // The rail and the palette list repos under the program each one is aimed at.
+  const lineGroups = groups.map((g) => ({
+    key: g.key,
+    label: g.label,
+    repos: g.items.map((l) => ({ id: l.repo.id, slug: l.repo.slug, code: l.repo.code, colorIndex: l.repo.colorIndex, name: l.repo.name, owner: l.repo.owner })),
+  }));
 
   return (
     <html lang="en" className={`${body.variable} ${signage.variable}`} suppressHydrationWarning>
@@ -34,7 +39,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <InlineScript html={themeScript} />
       </head>
       <body className="min-h-dvh antialiased">
-        <AppShell repos={repos} inboxCount={inboxCount}>
+        <AppShell groups={lineGroups} inboxCount={inboxCount}>
           {children}
         </AppShell>
       </body>

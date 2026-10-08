@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { contacts, events, inbox, loops, orgs, programEvents, programs, repos, settings } from "@/db/schema";
 import { computeActions } from "./next-actions";
+import { groupByProgram } from "./programs";
 import { dailyActivity, presenceLevel, presenceScore } from "./presence";
 
 const DAY = 86_400_000;
@@ -14,12 +15,17 @@ export async function getSetting(key: string) {
 
 export async function getRepoList() {
   const rows = await db
-    .select({ repo: repos, org: orgs })
+    .select({ repo: repos, org: orgs, program: programs })
     .from(repos)
     .innerJoin(orgs, eq(repos.orgId, orgs.id))
+    .leftJoin(programs, eq(repos.programId, programs.id))
     .where(eq(repos.archived, false))
     .orderBy(asc(repos.colorIndex), asc(repos.id));
   return rows;
+}
+
+export async function getProgramOptions() {
+  return db.select({ id: programs.id, name: programs.name }).from(programs).orderBy(asc(programs.name));
 }
 
 export type RepoWithOrg = Awaited<ReturnType<typeof getRepoList>>[number];
@@ -36,12 +42,13 @@ export async function getNetwork() {
     db.select().from(inbox).where(eq(inbox.status, "new")).orderBy(desc(inbox.receivedAt)),
   ]);
 
-  const lines = list.map(({ repo, org }) => {
+  const lines = list.map(({ repo, org, program }) => {
     const repoEvents = eventRows.filter((e) => e.repoId === repo.id);
     const score = presenceScore(repoEvents);
     return {
       repo,
       org,
+      program,
       active: loopRows.filter((l) => l.repoId === repo.id && l.status === "active"),
       merged: loopRows.filter((l) => l.repoId === repo.id && l.stage === "merged").length,
       presence: { score, ...presenceLevel(score), days: dailyActivity(repoEvents) },
@@ -56,8 +63,12 @@ export async function getNetwork() {
     inboxRows,
   );
   const activeIds = new Set(loopRows.filter((l) => l.status === "active").map((l) => l.id));
+  const programRows = await db.select().from(programs).orderBy(asc(programs.name));
   return {
     lines,
+    /** The same lines, split by the program each repo is aimed at. */
+    groups: groupByProgram(lines, programRows),
+    programs: programRows,
     actions,
     waiting,
     inboxCount: inboxRows.length,
@@ -69,22 +80,23 @@ export type NetworkLine = Awaited<ReturnType<typeof getNetwork>>["lines"][number
 
 export async function getRepoDetail(slug: string) {
   const row = await db
-    .select({ repo: repos, org: orgs })
+    .select({ repo: repos, org: orgs, program: programs })
     .from(repos)
     .innerJoin(orgs, eq(repos.orgId, orgs.id))
+    .leftJoin(programs, eq(repos.programId, programs.id))
     .where(eq(repos.slug, slug))
     .get();
   if (!row) return null;
-  const [loopRows, eventRows, contactRows, program] = await Promise.all([
+  const [loopRows, eventRows, contactRows, programOptions] = await Promise.all([
     db.select().from(loops).where(eq(loops.repoId, row.repo.id)).orderBy(desc(loops.createdAt)),
     db.select().from(events).where(eq(events.repoId, row.repo.id)).orderBy(desc(events.occurredAt)),
     db.select().from(contacts).where(eq(contacts.orgId, row.org.id)).orderBy(asc(contacts.name)),
-    row.org.programId ? db.query.programs.findFirst({ where: eq(programs.id, row.org.programId) }) : null,
+    getProgramOptions(),
   ]);
   const score = presenceScore(eventRows);
   return {
     ...row,
-    program: program ?? null,
+    programOptions,
     loops: loopRows,
     events: eventRows,
     contacts: contactRows,
@@ -101,15 +113,15 @@ export async function getInbox() {
 }
 
 export async function getPrograms() {
-  const [progs, evs, orgRows] = await Promise.all([
+  const [progs, evs, repoRows] = await Promise.all([
     db.select().from(programs).orderBy(asc(programs.name)),
     db.select().from(programEvents).orderBy(asc(programEvents.date)),
-    db.select().from(orgs),
+    getRepoList(),
   ]);
   return progs.map((p) => ({
     ...p,
     events: evs.filter((e) => e.programId === p.id),
-    orgCount: orgRows.filter((o) => o.programId === p.id).length,
+    repos: repoRows.filter((r) => r.repo.programId === p.id).map((r) => ({ ...r.repo, orgName: r.org.name })),
   }));
 }
 

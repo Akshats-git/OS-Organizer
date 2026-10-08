@@ -7,12 +7,14 @@ import { Suspense, type ReactNode } from "react";
 import { ActivityBars } from "@/components/activity-bars";
 import { DiscordMark, GitHubMark } from "@/components/icons";
 import { LineBullet } from "@/components/line-bullet";
+import { ProgramPlate } from "@/components/program-sign";
 import { LoopSheet } from "@/components/loop-sheet";
 import { AddContact, Checklist, CopyProofPack, LogActivity, LoopRows, RepoSettings, SetupNotes, StartLoopForm, TouchContact } from "@/components/repo-widgets";
 import type { EventKind } from "@/db/schema";
 import { getRepoDetail } from "@/lib/data";
 import { ghUrl } from "@/lib/links";
 import { lineVar, onLineVar } from "@/lib/lines";
+import { NO_PROGRAM_LABEL, programShortName } from "@/lib/programs";
 import { WORKFLOW_LABELS } from "@/lib/stages";
 import { age, formatDate } from "@/lib/time";
 
@@ -43,7 +45,7 @@ export default async function RepoPage(props: PageProps<"/repos/[slug]">) {
   const showAll = (await props.searchParams).all === "1";
   const data = await getRepoDetail(slug);
   if (!data) notFound();
-  const { repo, org, program, loops, events, contacts, presence } = data;
+  const { repo, org, program, programOptions, loops, events, contacts, presence } = data;
   const color = lineVar(repo.colorIndex);
   const active = loops.filter((l) => l.status === "active");
   const merged = loops.filter((l) => l.stage === "merged");
@@ -84,10 +86,15 @@ export default async function RepoPage(props: PageProps<"/repos/[slug]">) {
             <LineBullet code={repo.code} colorIndex={repo.colorIndex} size="xl" />
           </span>
         </div>
-        <p className="text-sm text-ink-3">
-          {org.name}
-          {program && <> for {program.name}</>}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm text-ink-3">
+          <Link href={program ? `/lines?program=${program.id}` : "/lines"} aria-label={program ? `All ${program.name} lines` : "All lines"}>
+            <ProgramPlate label={program ? programShortName(program) : NO_PROGRAM_LABEL} size="sm" />
+          </Link>
+          <span>
+            {org.name}
+            {program && <> for {program.name}</>}
+          </span>
+        </div>
         <h1 className="type-display mt-1 break-words text-[2.5rem] leading-none sm:text-[3.25rem]">
           <span className="text-ink-3">{repo.owner}/</span>
           {repo.name}
@@ -232,7 +239,7 @@ export default async function RepoPage(props: PageProps<"/repos/[slug]">) {
               <span className="float-right text-ink-3 transition-transform group-open:rotate-90">›</span>
             </summary>
             <div className="mt-4">
-              <RepoSettings repo={repo} />
+              <RepoSettings repo={repo} programs={programOptions} />
             </div>
           </details>
         </aside>

@@ -92,7 +92,7 @@ function Dialog({ programs, onClose }: { programs: { id: string; name: string }[
             <Field label="Organization" hint="Defaults to the repo owner.">
               <input name="orgName" placeholder="SymPy" className="field" />
             </Field>
-            <Field label="Program">
+            <Field label="Program" hint="Files the line under this program.">
               <select name="programId" className="field" defaultValue="gsoc">
                 <option value="">None yet</option>
                 {programs.map((p) => (

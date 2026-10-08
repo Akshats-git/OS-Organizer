@@ -9,7 +9,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { BrandMark } from "@/components/icons";
 import { LineBullet } from "@/components/line-bullet";
 import { ToastProvider } from "@/components/toast";
-import { CommandPalette, type PaletteRepo } from "./command-palette";
+import { NO_PROGRAM } from "@/lib/programs";
+import { CommandPalette, type LineGroup, type PaletteRepo } from "./command-palette";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV = [
@@ -20,8 +21,9 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-export function AppShell({ children, repos, inboxCount }: { children: ReactNode; repos: PaletteRepo[]; inboxCount: number }) {
+export function AppShell({ children, groups, inboxCount }: { children: ReactNode; groups: LineGroup[]; inboxCount: number }) {
   const pathname = usePathname();
+  const repos: PaletteRepo[] = groups.flatMap((g) => g.repos);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -85,26 +87,36 @@ export function AppShell({ children, repos, inboxCount }: { children: ReactNode;
             </nav>
 
             {repos.length > 0 && (
-              <div className="mt-7 min-h-0 flex-1 overflow-y-auto px-3">
-                <p className="px-3 pb-2 text-xs font-semibold text-ink-3">Your lines</p>
-                <ul className="space-y-0.5">
-                  {repos.map((r) => (
-                    <li key={r.id}>
-                      <Link
-                        href={`/repos/${r.slug}`}
-                        aria-current={pathname === `/repos/${r.slug}` ? "page" : undefined}
-                        className={clsx(
-                          "flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-1.5 text-sm transition-colors",
-                          pathname === `/repos/${r.slug}` ? "bg-panel-2 font-semibold text-ink" : "text-ink-2 hover:bg-panel-2 hover:text-ink",
-                        )}
-                      >
-                        <LineBullet code={r.code} colorIndex={r.colorIndex} size="sm" />
-                        <span className="truncate">{r.name}</span>
-                        <span className="ml-auto truncate text-xs text-ink-3">{r.owner}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+              <div className="mt-7 min-h-0 flex-1 overflow-y-auto px-3 pb-2">
+                {groups.map((group) => (
+                  <section key={group.key} className="mb-4 last:mb-0">
+                    <Link
+                      href={group.key === NO_PROGRAM ? "/lines" : `/lines?program=${group.key}`}
+                      className="flex items-center gap-2 px-3 pb-1.5 text-xs font-semibold text-ink-3 transition-colors hover:text-ink-2"
+                    >
+                      <span className="truncate tracking-[0.04em]">{group.key === NO_PROGRAM ? "No program" : group.label}</span>
+                      <span className="numerals ml-auto text-[0.6875rem] text-ink-3">{group.repos.length}</span>
+                    </Link>
+                    <ul className="space-y-0.5">
+                      {group.repos.map((r) => (
+                        <li key={r.id}>
+                          <Link
+                            href={`/repos/${r.slug}`}
+                            aria-current={pathname === `/repos/${r.slug}` ? "page" : undefined}
+                            className={clsx(
+                              "flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-1.5 text-sm transition-colors",
+                              pathname === `/repos/${r.slug}` ? "bg-panel-2 font-semibold text-ink" : "text-ink-2 hover:bg-panel-2 hover:text-ink",
+                            )}
+                          >
+                            <LineBullet code={r.code} colorIndex={r.colorIndex} size="sm" />
+                            <span className="truncate">{r.name}</span>
+                            <span className="ml-auto truncate text-xs text-ink-3">{r.owner}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
               </div>
             )}
             <div className="mt-auto border-t border-rule px-3 py-3">
@@ -152,7 +164,7 @@ export function AppShell({ children, repos, inboxCount }: { children: ReactNode;
           </ul>
         </nav>
 
-        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} repos={repos} />
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} groups={groups} />
       </ToastProvider>
     </MotionConfig>
   );

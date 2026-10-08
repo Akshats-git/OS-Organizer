@@ -8,6 +8,13 @@
       "when": 1791131574920,
       "tag": "0000_past_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791209406423,
+      "tag": "0001_steady_naoko",
+      "breakpoints": true
     }
   ]
 }

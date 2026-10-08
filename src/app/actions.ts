@@ -4,7 +4,7 @@ import { eq, inArray, like, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
-  contacts, events, inbox, loops, orgs, programEvents, repos, settings,
+  contacts, events, inbox, loops, orgs, programEvents, programs, repos, settings,
   type Loop, type Stage, type Workflow, WORKFLOWS,
 } from "@/db/schema";
 import { runSync } from "@/lib/github";
@@ -29,6 +29,14 @@ async function loadLoop(id: number) {
 
 const STAMP: Record<Stage, keyof Loop> = { ask: "askedAt", approved: "approvedAt", issue: "issueAt", pr: "prAt", merged: "mergedAt" };
 const EVENT_FOR: Record<Stage, "asked" | "approved" | "issue" | "pr" | "merged"> = { ask: "asked", approved: "approved", issue: "issue", pr: "pr", merged: "merged" };
+
+/** A repo files under exactly one program; anything unknown files under none. */
+async function resolveProgram(id?: string | null) {
+  const wanted = id?.trim();
+  if (!wanted) return null;
+  const program = await db.query.programs.findFirst({ where: eq(programs.id, wanted) });
+  return program?.id ?? null;
+}
 
 export async function startLoop(input: { repoId: number; title: string; link?: string }): Promise<ActionResult> {
   const title = input.title.trim();
@@ -149,6 +157,7 @@ export async function addRepo(input: {
   const slug = `${owner}-${name}`.toLowerCase();
   if (await db.query.repos.findFirst({ where: eq(repos.slug, slug) })) return fail(`${owner}/${name} is already on your network.`);
 
+  const wantedProgram = await resolveProgram(input.programId);
   const orgSlug = (input.orgName?.trim() || owner).toLowerCase().replace(/[^a-z0-9]+/g, "-");
   let org = await db.query.orgs.findFirst({ where: eq(orgs.slug, orgSlug) });
   if (!org) {
@@ -156,7 +165,7 @@ export async function addRepo(input: {
     [org] = await db
       .insert(orgs)
       .values({
-        slug: orgSlug, name: input.orgName?.trim() || owner, programId: input.programId || null,
+        slug: orgSlug, name: input.orgName?.trim() || owner, programId: wantedProgram,
         chatUrl: input.chatUrl?.trim() || null, chatPlatform: input.chatUrl ? (isDiscord ? "discord" : "other") : null,
         discordGuildId: input.discordGuildId?.trim() || null,
       })
@@ -167,16 +176,18 @@ export async function addRepo(input: {
   const used = new Set(all.filter((r) => !r.archived).map((r) => r.colorIndex % 8));
   const colorIndex = [0, 1, 2, 3, 4, 5, 6, 7].find((i) => !used.has(i)) ?? ((top ?? -1) + 1);
   const workflow = WORKFLOWS.includes(input.workflow as Workflow) ? input.workflow! : "ask-first";
-  await db.insert(repos).values({ orgId: org.id, owner, name, slug, code: suggestCode(name, all.map((r) => r.code)), colorIndex, workflow });
+  const programId = wantedProgram ?? org.programId;
+  await db.insert(repos).values({ orgId: org.id, programId, owner, name, slug, code: suggestCode(name, all.map((r) => r.code)), colorIndex, workflow });
   return { ...done(`Added ${owner}/${name}. Sync GitHub to pull in your PRs and its contribution rules.`), slug };
 }
 
 export async function updateRepo(id: number, input: {
-  workflow?: Workflow; staleDays?: number; claimDays?: number; discordChannelUrl?: string; setupNotes?: string; checklist?: string[]; code?: string;
+  workflow?: Workflow; staleDays?: number; claimDays?: number; discordChannelUrl?: string; setupNotes?: string; checklist?: string[]; code?: string; programId?: string;
 }): Promise<ActionResult> {
   const repo = await db.query.repos.findFirst({ where: eq(repos.id, id) });
   if (!repo) return fail("That repo no longer exists.");
   const patch: Partial<typeof repo> = {};
+  if (input.programId !== undefined) patch.programId = await resolveProgram(input.programId);
   if (input.workflow && WORKFLOWS.includes(input.workflow)) patch.workflow = input.workflow;
   if (input.staleDays && input.staleDays > 0) patch.staleDays = Math.round(input.staleDays);
   if (input.claimDays && input.claimDays > 0) patch.claimDays = Math.round(input.claimDays);

@@ -67,24 +67,24 @@ async function main() {
     .insert(repos)
     .values([
       {
-        orgId: org.meridian, owner: "meridian-gfx", name: "engine", slug: "meridian-gfx-engine", code: "ME", colorIndex: 0, workflow: "ask-first", staleDays: 4, medianReviewHours: 31,
+        orgId: org.meridian, programId: "gsoc", owner: "meridian-gfx", name: "engine", slug: "meridian-gfx-engine", code: "ME", colorIndex: 0, workflow: "ask-first", staleDays: 4, medianReviewHours: 31,
         rules: { dco: true, conventionalCommits: true, checklist: ["Run cargo fmt and cargo clippy", "Add a test for the change", "Sign off every commit (git commit -s)"], contributingUrl: "https://github.com/meridian-gfx/engine/blob/main/CONTRIBUTING.md" },
         setupNotes: "Needs Rust 1.82+. Run `cargo xtask setup` once before building the examples.",
       },
       {
-        orgId: org.tidepool, owner: "tidepool-data", name: "flux", slug: "tidepool-data-flux", code: "TF", colorIndex: 1, workflow: "ask-first", staleDays: 5, medianReviewHours: 52,
+        orgId: org.tidepool, programId: "gsoc", owner: "tidepool-data", name: "flux", slug: "tidepool-data-flux", code: "TF", colorIndex: 1, workflow: "ask-first", staleDays: 5, medianReviewHours: 52,
         rules: { changelog: true, checklist: ["Add a news fragment in changes/", "Run pytest -m 'not slow'"] },
       },
       {
-        orgId: org.orbit, owner: "orbit-edu", name: "classroom", slug: "orbit-edu-classroom", code: "OC", colorIndex: 2, workflow: "issue-first", staleDays: 5, claimDays: 7, medianReviewHours: 20,
+        orgId: org.orbit, programId: "gsoc", owner: "orbit-edu", name: "classroom", slug: "orbit-edu-classroom", code: "OC", colorIndex: 2, workflow: "issue-first", staleDays: 5, claimDays: 7, medianReviewHours: 20,
         rules: { cla: true, checklist: ["Sign the CLA before the first PR", "Screenshots for UI changes"] },
       },
       {
-        orgId: org.fernwood, owner: "fernwood-lab", name: "kit", slug: "fernwood-lab-kit", code: "FK", colorIndex: 3, workflow: "ask-first", staleDays: 5, medianReviewHours: 74,
+        orgId: org.fernwood, programId: "gsoc", owner: "fernwood-lab", name: "kit", slug: "fernwood-lab-kit", code: "FK", colorIndex: 3, workflow: "ask-first", staleDays: 5, medianReviewHours: 74,
         rules: { conventionalCommits: true, checklist: ["Update docs/ for public API changes"] },
       },
       {
-        orgId: org.harbor, owner: "harbor-dev", name: "cli", slug: "harbor-dev-cli", code: "HC", colorIndex: 4, workflow: "pr-first", staleDays: 6, medianReviewHours: 40,
+        orgId: org.harbor, programId: "lfx", owner: "harbor-dev", name: "cli", slug: "harbor-dev-cli", code: "HC", colorIndex: 4, workflow: "pr-first", staleDays: 6, medianReviewHours: 40,
         rules: { dco: true, checklist: ["Sign off every commit (git commit -s)", "make lint passes"] },
       },
     ])

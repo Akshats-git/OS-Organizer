@@ -10,12 +10,16 @@ import { DiscordMark, GitHubMark } from "@/components/icons";
 import { LineBullet } from "@/components/line-bullet";
 import { useAction } from "@/components/use-action";
 import { parseLink } from "@/lib/links";
+import { NO_PROGRAM } from "@/lib/programs";
 import { setTheme } from "./theme-toggle";
 
 export type PaletteRepo = { id: number; slug: string; code: string; colorIndex: number; name: string; owner: string };
+/** Repos as the rail and the palette show them: under their program. */
+export type LineGroup = { key: string; label: string; repos: PaletteRepo[] };
 
-export function CommandPalette({ open, onOpenChange, repos }: { open: boolean; onOpenChange: (o: boolean) => void; repos: PaletteRepo[] }) {
+export function CommandPalette({ open, onOpenChange, groups }: { open: boolean; onOpenChange: (o: boolean) => void; groups: LineGroup[] }) {
   const router = useRouter();
+  const repos = useMemo(() => groups.flatMap((g) => g.repos), [groups]);
   const [query, setQuery] = useState("");
   const { run, pending } = useAction();
 
@@ -121,15 +125,15 @@ export function CommandPalette({ open, onOpenChange, repos }: { open: boolean; o
                       <Item icon={<CalendarDays className="size-4" />} onSelect={() => go("/programs")}>Programs</Item>
                       <Item icon={<Settings className="size-4" />} onSelect={() => go("/settings")}>Settings</Item>
                     </Command.Group>
-                    {repos.length > 0 && (
-                      <Command.Group heading="Repos">
-                        {repos.map((r) => (
-                          <Item key={r.id} value={`${r.owner}/${r.name} ${r.code}`} icon={<LineBullet code={r.code} colorIndex={r.colorIndex} size="sm" />} onSelect={() => go(`/repos/${r.slug}`)}>
+                    {groups.map((group) => (
+                      <Command.Group key={group.key} heading={group.key === NO_PROGRAM ? "No program" : group.label}>
+                        {group.repos.map((r) => (
+                          <Item key={r.id} value={`${r.owner}/${r.name} ${r.code} ${group.label}`} icon={<LineBullet code={r.code} colorIndex={r.colorIndex} size="sm" />} onSelect={() => go(`/repos/${r.slug}`)}>
                             {r.name} <span className="text-ink-3">{r.owner}</span>
                           </Item>
                         ))}
                       </Command.Group>
-                    )}
+                    ))}
                     <Command.Group heading="Actions">
                       <Item icon={<RefreshCw className="size-4" />} onSelect={() => act(() => syncNow())} disabled={pending}>Sync GitHub now</Item>
                       <Item icon={<Plus className="size-4" />} onSelect={() => go("/lines?add=1")}>Add a repo</Item>
