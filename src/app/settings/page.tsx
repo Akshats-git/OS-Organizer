@@ -109,13 +109,14 @@ export default async function SettingsPage() {
           status={s.gmail.lastIngest ? <Status tone="ok">Last email {ageLong(s.gmail.lastIngest)}</Status> : <Status tone="off">Not connected</Status>}
         >
           <p>
-            For what GitHub can’t see: mailing lists, program announcements and mentor emails. A small Apps Script in your own Google account forwards labelled threads, so there is no OAuth app to verify and no weekly sign-in.
+            For what GitHub can’t see: mailing lists, program announcements and mentor emails. It also sends your morning briefing. A small Apps Script in your own Google account forwards labelled threads, so there is no OAuth app to verify and no weekly sign-in.
           </p>
           <Steps>
             <li>Create a Gmail filter that applies the label <Code>os-organizer</Code>, for example to your target orgs’ mailing lists.</li>
             <li>At script.google.com, create a project and paste in <Code>integrations/gmail/Code.gs</Code> from this repo.</li>
             <li>In Project Settings, add the script properties <Code>APP_URL</Code> (a public URL for this app) and <Code>INGEST_SECRET</Code>.</li>
-            <li>Run <Code>setup</Code> once and approve access. It then checks every 5 minutes.</li>
+            <li>Optionally add <Code>BRIEFING_TO</Code> (the address for the morning briefing; defaults to that Google account) and <Code>BRIEFING_HOUR</Code> (default 8).</li>
+            <li>Run <Code>setup</Code> once and approve access. It then checks every 5 minutes and emails you the briefing each morning, skipping days with nothing pressing.</li>
           </Steps>
         </Integration>
 
