@@ -7,7 +7,7 @@ const url = process.env.DATABASE_URL ?? "file:./data/os-organizer.db";
 const globalForDb = globalThis as unknown as { client?: ReturnType<typeof createClient> };
 
 // Reuse one client across hot reloads in dev.
-const client = globalForDb.client ?? createClient({ url });
+const client = globalForDb.client ?? createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN });
 if (process.env.NODE_ENV !== "production") globalForDb.client = client;
 
 export const db = drizzle(client, { schema });

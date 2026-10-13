@@ -1,12 +1,14 @@
 import clsx from "clsx";
-import { Mail } from "lucide-react";
+import { LogOut, Mail } from "lucide-react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { signOut } from "@/app/login/actions";
 import { DiscordMark, GitHubMark } from "@/components/icons";
 import { ClearDemoButton, SyncButton } from "@/components/settings-widgets";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { getIntegrationStatus } from "@/lib/data";
+import { authMode } from "@/lib/session";
 import { ageLong } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -48,8 +50,18 @@ export default async function SettingsPage() {
   return (
     <>
       <header className="mb-8 lg:mb-10">
-        <h1 className="type-display text-[2.5rem] leading-none sm:text-[3rem]">Settings</h1>
-        <p className="mt-2 max-w-[62ch] text-ink-2">Connect the places your open source work happens. Everything runs on your machine, and secrets stay in your <Code>.env</Code> file.</p>
+        <div className="flex items-center gap-4">
+          <h1 className="type-display flex-1 text-[2.5rem] leading-none sm:text-[3rem]">Settings</h1>
+          {authMode() === "password" && (
+            <form action={signOut}>
+              <button type="submit" className="btn btn-quiet">
+                <LogOut className="size-4" />
+                Sign out
+              </button>
+            </form>
+          )}
+        </div>
+        <p className="mt-2 max-w-[62ch] text-ink-2">Connect the places your open source work happens. Secrets stay in your <Code>.env</Code> file, or in your host&apos;s environment variables once deployed.</p>
       </header>
 
       <div className="grid max-w-3xl gap-5">

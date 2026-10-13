@@ -3,8 +3,9 @@
  *
  * Runs inside your own Google account, so there is no OAuth app to verify.
  * Every 5 minutes it sends threads labelled "os-organizer" to your app's inbox,
- * then moves them to "os-organizer/sent". Every morning it emails you the
- * briefing: what to do today, what you're waiting on, and upcoming deadlines.
+ * then moves them to "os-organizer/sent". Every 15 minutes it asks the app to
+ * sync GitHub. Every morning it emails you the briefing: what to do today,
+ * what you're waiting on, and upcoming deadlines.
  *
  * Setup:
  *   1. Create a Gmail filter that applies the label "os-organizer".
@@ -23,9 +24,10 @@ function setup() {
   GmailApp.getUserLabelByName(DONE_LABEL) || GmailApp.createLabel(DONE_LABEL);
   ScriptApp.getProjectTriggers().forEach(function (t) {
     var fn = t.getHandlerFunction();
-    if (fn === "forwardLabelled" || fn === "sendBriefing") ScriptApp.deleteTrigger(t);
+    if (fn === "forwardLabelled" || fn === "syncGitHub" || fn === "sendBriefing") ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger("forwardLabelled").timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger("syncGitHub").timeBased().everyMinutes(15).create();
   var hour = Number(PropertiesService.getScriptProperties().getProperty("BRIEFING_HOUR") || 8);
   ScriptApp.newTrigger("sendBriefing").timeBased().everyDays(1).atHour(hour).create();
   forwardLabelled();
@@ -37,6 +39,13 @@ function config() {
   var secret = props.getProperty("INGEST_SECRET");
   if (!appUrl || !secret) throw new Error("Set APP_URL and INGEST_SECRET in Project Settings → Script properties.");
   return { appUrl: appUrl, secret: secret, to: props.getProperty("BRIEFING_TO") || Session.getEffectiveUser().getEmail() };
+}
+
+/** Ask the app to pull your latest PRs, issues and reviews from GitHub. */
+function syncGitHub() {
+  var c = config();
+  var res = UrlFetchApp.fetch(c.appUrl + "/api/sync", { method: "post", headers: { "x-ingest-secret": c.secret }, muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) console.warn("Sync failed: " + res.getResponseCode() + " " + res.getContentText());
 }
 
 /** Sync GitHub, then email today's briefing. Skips the email on days with nothing pressing. */

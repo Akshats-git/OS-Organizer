@@ -31,6 +31,22 @@ pnpm dev
 | `pnpm bot` | Starts the Discord bot |
 | `pnpm db:reset` | Wipes and reseeds demo data |
 | `pnpm test:sync` | Offline test of the GitHub sync logic |
+| `pnpm db:push-data` | Copies your local data into a hosted database |
+
+## Deploy (free)
+
+The web app runs on **Vercel** and the database on **Turso** (hosted libSQL, the same engine as the local file). Both have free plans.
+
+1. **Database.** Create a Turso database and copy its URL (`libsql://…`) and a token. Then copy your local data across:
+   ```bash
+   TARGET_DATABASE_URL=libsql://… TARGET_DATABASE_AUTH_TOKEN=… pnpm db:push-data
+   ```
+   It migrates the hosted database first and refuses to overwrite rows unless you pass `--replace`.
+2. **Web app.** Import the GitHub repo in Vercel. Add these environment variables: `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `APP_PASSWORD`, `SESSION_SECRET` (`openssl rand -base64 32`), `INGEST_SECRET`, `GITHUB_TOKEN`, and optionally `DISCORD_WEBHOOK_URL`. `vercel.json` runs migrations on each build. In Settings → Functions, set the region to the one nearest your Turso database.
+3. **Gmail and sync.** In the Apps Script's properties, set `APP_URL` to your Vercel URL, then run `setup()` again. It forwards labelled mail every 5 minutes, syncs GitHub every 15 minutes and sends the morning briefing.
+4. **Calendar.** Re-subscribe to the `.ics` feed from the Programs page, because its URL now uses the new domain.
+
+Every page asks for `APP_PASSWORD`. Signing in lasts 30 days, and changing the password signs out every device. The `/api/*` routes still use `INGEST_SECRET`.
 
 ## Integrations
 

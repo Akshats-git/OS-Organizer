@@ -11,6 +11,7 @@ import { runSync } from "@/lib/github";
 import { fileItem, type FileAs } from "@/lib/ingest";
 import { suggestCode } from "@/lib/lines";
 import { parseLink } from "@/lib/links";
+import { requireAuth } from "@/lib/require-auth";
 import { nextStage, WORKFLOW_STATIONS } from "@/lib/stages";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
@@ -39,6 +40,7 @@ async function resolveProgram(id?: string | null) {
 }
 
 export async function startLoop(input: { repoId: number; title: string; link?: string }): Promise<ActionResult> {
+  await requireAuth();
   const title = input.title.trim();
   if (!title) return fail("Give the loop a short name, like the issue title.");
   const repo = await db.query.repos.findFirst({ where: eq(repos.id, input.repoId) });
@@ -58,6 +60,7 @@ export async function startLoop(input: { repoId: number; title: string; link?: s
 }
 
 export async function advanceLoop(id: number, extra?: { link?: string; approvedBy?: string }): Promise<ActionResult> {
+  await requireAuth();
   const { loop, repo } = await loadLoop(id);
   const to = nextStage(repo.workflow, loop.stage);
   if (!to) return fail("This loop is already at the last station.");
@@ -78,6 +81,7 @@ export async function advanceLoop(id: number, extra?: { link?: string; approvedB
 }
 
 export async function moveLoopBack(id: number): Promise<ActionResult> {
+  await requireAuth();
   const { loop, repo } = await loadLoop(id);
   const stations = WORKFLOW_STATIONS[repo.workflow];
   const i = stations.indexOf(loop.stage);
@@ -87,6 +91,7 @@ export async function moveLoopBack(id: number): Promise<ActionResult> {
 }
 
 export async function updateLoop(id: number, input: { title?: string; issue?: string; pr?: string; askUrl?: string; approvedBy?: string }): Promise<ActionResult> {
+  await requireAuth();
   const { loop, repo } = await loadLoop(id);
   const patch: Partial<Loop> = { updatedAt: new Date().toISOString() };
   if (input.title?.trim()) patch.title = input.title.trim();
@@ -117,6 +122,7 @@ export async function updateLoop(id: number, input: { title?: string; issue?: st
 }
 
 export async function setLoopStatus(id: number, status: "active" | "dropped"): Promise<ActionResult> {
+  await requireAuth();
   const { loop } = await loadLoop(id);
   await db.update(loops).set({ status, updatedAt: new Date().toISOString() }).where(eq(loops.id, id));
   if (status === "dropped") await db.insert(events).values({ repoId: loop.repoId, loopId: id, kind: "closed", title: `Dropped “${loop.title}”`, source: "manual" });
@@ -124,17 +130,20 @@ export async function setLoopStatus(id: number, status: "active" | "dropped"): P
 }
 
 export async function clearCollision(id: number): Promise<ActionResult> {
+  await requireAuth();
   await db.update(loops).set({ collisionUrl: null }).where(eq(loops.id, id));
   return done("Marked as checked.");
 }
 
 export async function logActivity(input: { repoId: number; kind: "help" | "review-given" | "note" | "discord"; title: string; url?: string }): Promise<ActionResult> {
+  await requireAuth();
   if (!input.title.trim()) return fail("Describe what you did in a few words.");
   await db.insert(events).values({ repoId: input.repoId, kind: input.kind, title: input.title.trim(), url: input.url?.trim() || null, source: "manual" });
   return done("Logged.");
 }
 
 export async function fileInboxItem(id: number, repoId: number, as: FileAs): Promise<ActionResult> {
+  await requireAuth();
   try {
     return done(await fileItem(id, repoId, as));
   } catch (err) {
@@ -143,6 +152,7 @@ export async function fileInboxItem(id: number, repoId: number, as: FileAs): Pro
 }
 
 export async function dismissInboxItem(id: number): Promise<ActionResult> {
+  await requireAuth();
   await db.update(inbox).set({ status: "dismissed" }).where(eq(inbox.id, id));
   return done("Dismissed.");
 }
@@ -150,6 +160,7 @@ export async function dismissInboxItem(id: number): Promise<ActionResult> {
 export async function addRepo(input: {
   github: string; orgName?: string; programId?: string; workflow?: Workflow; chatUrl?: string; discordGuildId?: string;
 }): Promise<ActionResult & { slug?: string }> {
+  await requireAuth();
   const raw = input.github.trim().replace(/\.git$/, "");
   const link = parseLink(raw.startsWith("http") ? raw : `https://github.com/${raw}`);
   if (!link || link.kind === "discord-message") return fail("Paste a GitHub repo link or owner/name, like sympy/sympy.");
@@ -184,6 +195,7 @@ export async function addRepo(input: {
 export async function updateRepo(id: number, input: {
   workflow?: Workflow; staleDays?: number; claimDays?: number; discordChannelUrl?: string; setupNotes?: string; checklist?: string[]; code?: string; programId?: string;
 }): Promise<ActionResult> {
+  await requireAuth();
   const repo = await db.query.repos.findFirst({ where: eq(repos.id, id) });
   if (!repo) return fail("That repo no longer exists.");
   const patch: Partial<typeof repo> = {};
@@ -200,44 +212,52 @@ export async function updateRepo(id: number, input: {
 }
 
 export async function archiveRepo(id: number): Promise<ActionResult> {
+  await requireAuth();
   await db.update(repos).set({ archived: true }).where(eq(repos.id, id));
   return done("Removed from your network. Its history is kept.");
 }
 
 export async function addContact(input: { orgId: number; name: string; handle?: string; role?: string; timezone?: string }): Promise<ActionResult> {
+  await requireAuth();
   if (!input.name.trim()) return fail("Add a name.");
   await db.insert(contacts).values({ orgId: input.orgId, name: input.name.trim(), handle: input.handle?.trim() || null, role: input.role?.trim() || null, timezone: input.timezone?.trim() || null });
   return done(`Added ${input.name.trim()}.`);
 }
 
 export async function touchContact(id: number): Promise<ActionResult> {
+  await requireAuth();
   await db.update(contacts).set({ lastContactAt: new Date().toISOString() }).where(eq(contacts.id, id));
   return done("Noted.");
 }
 
 export async function addProgramEvent(input: { programId: string; title: string; date: string; kind: "open" | "deadline" | "announce" | "coding" | "result" }): Promise<ActionResult> {
+  await requireAuth();
   if (!input.title.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return fail("Add a title and a date.");
   await db.insert(programEvents).values({ ...input, title: input.title.trim(), estimated: false });
   return done("Added to the timeline and your calendar feed.");
 }
 
 export async function confirmProgramEvent(id: number): Promise<ActionResult> {
+  await requireAuth();
   await db.update(programEvents).set({ estimated: false }).where(eq(programEvents.id, id));
   return done("Marked as confirmed.");
 }
 
 export async function deleteProgramEvent(id: number): Promise<ActionResult> {
+  await requireAuth();
   await db.delete(programEvents).where(eq(programEvents.id, id));
   return done("Removed.");
 }
 
 export async function syncNow(): Promise<ActionResult> {
+  await requireAuth();
   const result = await runSync();
   revalidatePath("/", "layout");
   return { ok: result.ok, message: result.message };
 }
 
 export async function clearDemoData(): Promise<ActionResult> {
+  await requireAuth();
   const demoOrgs = await db.select({ id: orgs.id }).from(orgs).where(eq(orgs.isDemo, true));
   const ids = demoOrgs.map((o) => o.id);
   if (ids.length) {

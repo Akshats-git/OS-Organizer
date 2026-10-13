@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible_Next, Barlow_Condensed } from "next/font/google";
-import { connection } from "next/server";
 import { InlineScript } from "@/components/inline-script";
-import { AppShell } from "@/components/shell/app-shell";
-import { getNetwork } from "@/lib/data";
 import "./globals.css";
 
 const body = Atkinson_Hyperlegible_Next({ variable: "--font-body", subsets: ["latin"], adjustFontFallback: false, fallback: ["system-ui", "sans-serif"] });
@@ -23,26 +20,13 @@ export const viewport: Viewport = {
 
 const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  await connection();
-  const { groups, inboxCount } = await getNetwork();
-  // The rail and the palette list repos under the program each one is aimed at.
-  const lineGroups = groups.map((g) => ({
-    key: g.key,
-    label: g.label,
-    repos: g.items.map((l) => ({ id: l.repo.id, slug: l.repo.slug, code: l.repo.code, colorIndex: l.repo.colorIndex, name: l.repo.name, owner: l.repo.owner })),
-  }));
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${body.variable} ${signage.variable}`} suppressHydrationWarning>
       <head>
         <InlineScript html={themeScript} />
       </head>
-      <body className="min-h-dvh antialiased">
-        <AppShell groups={lineGroups} inboxCount={inboxCount}>
-          {children}
-        </AppShell>
-      </body>
+      <body className="min-h-dvh antialiased">{children}</body>
     </html>
   );
 }
