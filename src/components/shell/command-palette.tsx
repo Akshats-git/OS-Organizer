@@ -1,7 +1,7 @@
 "use client";
 
 import { Command } from "cmdk";
-import { CalendarDays, CornerDownLeft, ExternalLink, House, Inbox, Moon, Plus, RefreshCw, Settings, Waypoints } from "lucide-react";
+import { CalendarDays, CornerDownLeft, ExternalLink, House, Inbox, Landmark, Moon, Plus, RefreshCw, Settings, Waypoints } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
@@ -123,6 +123,7 @@ export function CommandPalette({ open, onOpenChange, groups }: { open: boolean; 
                       <Item icon={<Waypoints className="size-4" />} onSelect={() => go("/lines")}>Lines</Item>
                       <Item icon={<Inbox className="size-4" />} onSelect={() => go("/inbox")}>Inbox</Item>
                       <Item icon={<CalendarDays className="size-4" />} onSelect={() => go("/programs")}>Programs</Item>
+                      <Item icon={<Landmark className="size-4" />} onSelect={() => go("/orgs")}>Org directory</Item>
                       <Item icon={<Settings className="size-4" />} onSelect={() => go("/settings")}>Settings</Item>
                     </Command.Group>
                     {groups.map((group) => (

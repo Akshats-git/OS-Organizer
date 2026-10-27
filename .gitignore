@@ -39,6 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-data/
+/data/
 .env
 !.env.example
+
+# directory build cache
+.cache/

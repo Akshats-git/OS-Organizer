@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ExternalLink } from "lucide-react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { connection } from "next/server";
@@ -105,6 +105,9 @@ export default async function ProgramsPage() {
                     Website <ExternalLink className="size-3" />
                   </a>
                 )}
+                <Link href={`/programs/${p.id}`} className="link inline-flex items-center gap-1 text-sm text-ink-2">
+                  About and past orgs <ArrowRight className="size-3" />
+                </Link>
                 <span className="text-sm text-ink-3">
                   {p.repos.length ? `${p.repos.length} of your lines` : "None of your lines yet"}
                 </span>

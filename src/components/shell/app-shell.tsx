@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarDays, House, Inbox, Search, Settings, Waypoints } from "lucide-react";
+import { CalendarDays, House, Inbox, Landmark, Search, Settings, Waypoints } from "lucide-react";
 import { MotionConfig } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/lines", label: "Lines", icon: Waypoints },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/programs", label: "Programs", icon: CalendarDays },
+  { href: "/orgs", label: "Orgs", icon: Landmark },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -142,7 +143,7 @@ export function AppShell({ children, groups, inboxCount }: { children: ReactNode
 
         {/* Mobile tab bar */}
         <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-          <ul className="grid grid-cols-5">
+          <ul className="grid grid-cols-6">
             {NAV.map(({ href, label, icon: Icon }) => (
               <li key={href}>
                 <Link

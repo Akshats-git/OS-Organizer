@@ -33,6 +33,17 @@ pnpm dev
 | `pnpm test:sync` | Offline test of the GitHub sync logic |
 | `pnpm db:push-data` | Copies your local data into a hosted database |
 
+## Program directory
+
+`/programs/[id]` and `/orgs` describe GSoC, LFX, Summer of Bitcoin and Outreachy and list every organization that has taken part, with its tech stack and how regularly it comes back. The data is committed in `src/data/directory/directory.json`, so it needs no database and no network at runtime.
+
+```bash
+pnpm directory:build           # refetch public sources (cached in .cache/), rewrite the JSON
+pnpm directory:build --fresh   # ignore the cache
+```
+
+Run it once per cycle. Sources are the GSoC archive API, the LFX Mentorship API, Outreachy's per-round intern pages, and a headless render of summerofbitcoin.org. Only organization-level facts are stored. Fix a wrongly merged or renamed organization in `scripts/directory-manual.json` (`aliases`, `separate`). The written program descriptions are in `src/data/program-profiles.ts`.
+
 ## Deploy (free)
 
 The web app runs on **Vercel** and the database on **Turso** (hosted libSQL, the same engine as the local file). Both have free plans.

@@ -12,6 +12,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "tsx scripts/seed.ts --reset",
     "db:push-data": "tsx scripts/push-data.ts",
+    "directory:build": "tsx scripts/build-directory.ts",
     "sync": "tsx scripts/sync.ts",
     "bot": "tsx bot/index.ts",
     "test:sync": "tsx scripts/test-sync.ts"
