@@ -230,3 +230,9 @@ export function orgCode(name: string): string {
   const code = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? name).slice(0, 2);
   return code.toUpperCase();
 }
+
+/** Only same-app directory list URLs are accepted as a "back to the list" target. */
+export function safeListHref(from: string | string[] | undefined): string | undefined {
+  const v = Array.isArray(from) ? from[0] : from;
+  return v && /^\/(orgs|programs\/[\w-]+)(\?[^#]*)?$/.test(v) ? v : undefined;
+}

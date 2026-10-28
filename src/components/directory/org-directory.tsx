@@ -89,6 +89,8 @@ export function OrgDirectory({
   const result = queryOrgs({ ...current, program: fixedProgram ?? current.program });
   const filtered = Boolean(current.q || current.tech || current.cadence);
   const at = (change: Partial<Params>) => href(basePath, fixedProgram ? { ...current, program: undefined } : current, change);
+  // Open orgs remember this exact view, so the back link can restore the filters and page.
+  const listHref = at({ page: result.page > 1 ? result.page : undefined });
   const topTech = result.techs.slice(0, 12);
   const moreTech = result.techs.slice(12);
 
@@ -197,7 +199,7 @@ export function OrgDirectory({
         <ul className="divide-y divide-rule">
           {result.rows.map((o) => (
             <li key={o.id}>
-              <Link href={`/orgs/${o.id}`} className="group -mx-2 flex items-start gap-3 rounded-[var(--radius-control)] px-2 py-3 transition-colors hover:bg-panel-2">
+              <Link href={`/orgs/${o.id}?from=${encodeURIComponent(listHref)}`} className="group -mx-2 flex items-start gap-3 rounded-[var(--radius-control)] px-2 py-3 transition-colors hover:bg-panel-2">
                 <span className="mt-0.5"><OrgRoundel id={o.id} name={o.name} /></span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

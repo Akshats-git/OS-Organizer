@@ -9,7 +9,7 @@ import { GitHubMark } from "@/components/icons";
 import { LineBullet } from "@/components/line-bullet";
 import { ProgramPlate } from "@/components/program-sign";
 import { getOrg, getTrackedLines, getWindows, OVERALL_FIRST } from "@/lib/directory";
-import { DIR_PROGRAM_LABEL, DIR_PROJECT_NOTE, techLabel } from "@/lib/directory-shared";
+import { DIR_PROGRAM_LABEL, DIR_PROJECT_NOTE, safeListHref, techLabel } from "@/lib/directory-shared";
 
 export async function generateMetadata(props: PageProps<"/orgs/[id]">): Promise<Metadata> {
   const { id } = await props.params;
@@ -24,6 +24,8 @@ export default async function OrgPage(props: PageProps<"/orgs/[id]">) {
   const { id } = await props.params;
   const data = getOrg(id);
   if (!data) notFound();
+  const listHref = safeListHref((await props.searchParams).from);
+  const fromQuery = listHref ? `?from=${encodeURIComponent(listHref)}` : "";
   const { org, records, cadence, tech, projectYears, similar } = data;
   const tracked = await getTrackedLines(org);
   const windows = getWindows();
@@ -40,8 +42,8 @@ export default async function OrgPage(props: PageProps<"/orgs/[id]">) {
 
   return (
     <>
-      <Link href="/orgs" className="link mb-5 inline-flex items-center gap-1.5 text-sm text-ink-2 no-underline hover:text-ink">
-        <ArrowLeft className="size-4" /> All orgs
+      <Link href={listHref ?? "/orgs"} className="link mb-5 inline-flex items-center gap-1.5 text-sm text-ink-2 no-underline hover:text-ink">
+        <ArrowLeft className="size-4" /> {listHref?.startsWith("/programs/") ? "Back to program" : "All orgs"}
       </Link>
 
       <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
@@ -208,7 +210,7 @@ export default async function OrgPage(props: PageProps<"/orgs/[id]">) {
               <ul className="mt-2 divide-y divide-rule border-y border-rule">
                 {similar.map((s) => (
                   <li key={s.id}>
-                    <Link href={`/orgs/${s.id}`} className="flex items-center gap-2.5 py-2 text-sm hover:text-ink">
+                    <Link href={`/orgs/${s.id}${fromQuery}`} className="flex items-center gap-2.5 py-2 text-sm hover:text-ink">
                       <OrgRoundel id={s.id} name={s.name} size="sm" />
                       <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
                       <CadenceBadge cadence={s.cadence} />
