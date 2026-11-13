@@ -1,4 +1,4 @@
-import type { Event, InboxItem, Loop, Repo } from "@/db/schema";
+import type { Contact, Event, InboxItem, Loop, Repo } from "@/db/schema";
 import { ghUrl } from "./links";
 import { daysSince } from "./time";
 
@@ -42,6 +42,7 @@ export function computeActions(
   events: Event[],
   inbox: InboxItem[],
   now = Date.now(),
+  contacts: Contact[] = [],
 ): { actions: Action[]; waiting: Waiting[] } {
   const actions: Action[] = [];
   const waiting: Waiting[] = [];
@@ -153,6 +154,21 @@ export function computeActions(
       title: `Start something new in ${r.name}`,
       detail: quiet === Infinity ? "Nothing here yet. Find a good first issue." : `Last activity ${Math.floor(quiet)} days ago. Pick an issue before the line goes cold.`,
       since: last, href: ghUrl(r.owner, r.name, "/issues?q=is%3Aopen+label%3A%22good+first+issue%22+no%3Aassignee"), cta: "Find an issue",
+    });
+  }
+
+  // People you meant to follow up with.
+  const today = new Date(now).toISOString().slice(0, 10);
+  for (const c of contacts) {
+    if (!c.followUpAt || c.followUpAt > today) continue;
+    const r = repos.find((x) => x.orgId === c.orgId && !x.archived);
+    if (!r) continue;
+    const overdue = Math.round((Date.parse(today) - Date.parse(c.followUpAt)) / 86_400_000);
+    actions.push({
+      id: `follow-${c.id}`, repoId: r.id, tone: overdue >= 3 ? "soon" : "nudge",
+      title: `Follow up with ${c.name}`,
+      detail: c.followUpNote || (c.lastContactAt ? `You last talked ${Math.floor(daysSince(c.lastContactAt, now))} days ago.` : "You planned to reconnect."),
+      since: `${c.followUpAt}T00:00:00Z`, href: `/repos/${r.slug}`, cta: "Open repo",
     });
   }
 

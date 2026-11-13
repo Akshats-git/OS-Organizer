@@ -205,10 +205,10 @@ export default async function RepoPage(props: PageProps<"/repos/[slug]">) {
                           {c.name} {c.handle && <span className="font-normal text-ink-3">{c.handle}</span>}
                         </span>
                         <span className="block text-xs text-ink-3">
-                          {[c.role, local && `${local} for them`, c.lastContactAt && `last talked ${age(c.lastContactAt)} ago`].filter(Boolean).join(", ")}
+                          {[c.role, local && `${local} for them`, c.lastContactAt && `last talked ${age(c.lastContactAt)} ago`, c.followUpAt && `follow up ${formatDate(c.followUpAt)}`].filter(Boolean).join(", ")}
                         </span>
                       </span>
-                      <TouchContact id={c.id} />
+                      <TouchContact id={c.id} followUpAt={c.followUpAt} />
                     </li>
                   );
                 })}

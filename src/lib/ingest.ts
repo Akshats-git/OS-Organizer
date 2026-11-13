@@ -2,7 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { events, inbox, loops, orgs, repos, settings, type Repo } from "@/db/schema";
-import { findLinks, repoFromSubject } from "./links";
+import { findLinks, repoFromListId, repoFromSubject } from "./links";
 
 export const ingestSchema = z.object({
   source: z.enum(["discord", "gmail", "github"]),
@@ -27,6 +27,8 @@ async function activeRepos() {
     .orderBy(asc(repos.colorIndex));
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** Guess which repo a forwarded message or email belongs to. */
 export async function suggestRepo(p: Pick<IngestPayload, "body" | "title" | "url" | "discordGuildId" | "context">): Promise<Repo | null> {
   const list = await activeRepos();
@@ -44,6 +46,15 @@ export async function suggestRepo(p: Pick<IngestPayload, "body" | "title" | "url
     const hit = match(subject.owner, subject.repo);
     if (hit) return hit;
   }
+  const listId = repoFromListId(p.context ?? "");
+  if (listId) {
+    const hit = match(listId.owner, listId.repo);
+    if (hit) return hit;
+  }
+  // A plain "owner/name" mention, like "sympy/sympy" in a chat message.
+  const text = `${p.title ?? ""} ${p.body ?? ""}`.toLowerCase();
+  const mentioned = list.find((r) => new RegExp(`(^|[^\\w.-])${escapeRe(`${r.repo.owner}/${r.repo.name}`.toLowerCase())}($|[^\\w-])`).test(text));
+  if (mentioned) return mentioned.repo;
   if (p.discordGuildId) {
     const inGuild = list.filter((r) => r.org.discordGuildId === p.discordGuildId);
     if (inGuild.length) return inGuild[0].repo;

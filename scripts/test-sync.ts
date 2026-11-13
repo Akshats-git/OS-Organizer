@@ -21,6 +21,7 @@ const responses: Record<string, unknown> = {
   ],
   RepoActivity: {
     prs: {
+      pageInfo: { hasNextPage: true, endCursor: "page2" },
       nodes: [
         {
           number: 12, title: "Fix tokenizer crash", url: "https://github.com/acme/widgets/pull/12", state: "OPEN", merged: false, mergedAt: null, createdAt: iso(4),
@@ -36,8 +37,8 @@ const responses: Record<string, unknown> = {
         },
       ],
     },
-    issues: { nodes: [{ number: 30, title: "Add YAML export", url: "https://github.com/acme/widgets/issues/30", state: "OPEN", createdAt: iso(2) }] },
-    reviewed: { nodes: [{ number: 40, title: "Speed up build", url: "https://github.com/acme/widgets/pull/40", updatedAt: iso(3) }] },
+    issues: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ number: 30, title: "Add YAML export", url: "https://github.com/acme/widgets/issues/30", state: "OPEN", createdAt: iso(2) }] },
+    reviewed: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ number: 40, title: "Speed up build", url: "https://github.com/acme/widgets/pull/40", updatedAt: iso(3) }] },
   },
   IssueRefs: {
     repository: { issue: { timelineItems: { nodes: [{ willCloseTarget: true, source: { number: 31, url: "https://github.com/acme/widgets/pull/31", state: "OPEN", author: { login: "someone-else" } } }] } } },
@@ -56,9 +57,21 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   let body: unknown;
   if (url.endsWith("/graphql")) {
-    const { query } = JSON.parse(String(init?.body));
+    const { query, variables } = JSON.parse(String(init?.body));
     const name = String(query).match(/query (\w+)/)?.[1] ?? "";
-    body = { data: responses[name] };
+    if (name === "RepoActivity") {
+      // Mimic @include and paging: the PR search has a second page holding one older merged PR.
+      const all = responses.RepoActivity as Record<string, { nodes: unknown[] }>;
+      const data: Record<string, unknown> = {};
+      if (variables.morePrs) {
+        data.prs = variables.prsAfter
+          ? { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ number: 3, title: "Old fix", url: "https://github.com/acme/widgets/pull/3", state: "MERGED", merged: true, mergedAt: iso(90), createdAt: iso(92), reviewDecision: "APPROVED", mergeable: "UNKNOWN", closingIssuesReferences: { nodes: [] }, commits: { nodes: [] }, timelineItems: { nodes: [] } }] }
+          : all.prs;
+      }
+      if (variables.moreIssues) data.issues = all.issues;
+      if (variables.moreReviewed) data.reviewed = all.reviewed;
+      body = { data };
+    } else body = { data: responses[name] };
   } else {
     const path = new URL(url).pathname;
     body = responses[path];
@@ -96,6 +109,8 @@ async function main() {
   const merged = byTitle("Docs typo")!;
   assert.equal(merged.stage, "merged");
   assert.equal(merged.status, "done");
+
+  assert.equal(byTitle("Old fix")?.stage, "merged", "PRs beyond the first search page are still synced");
 
   const fromIssue = byTitle("Add YAML export")!;
   assert.equal(fromIssue.stage, "issue", "your open issue without a PR becomes a loop");

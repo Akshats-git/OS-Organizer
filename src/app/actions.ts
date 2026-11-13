@@ -4,7 +4,7 @@ import { eq, inArray, like, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
-  contacts, events, inbox, loops, orgs, programEvents, programs, repos, settings,
+  contacts, events, inbox, loops, orgs, programEvents, programs, repos, settings, snoozes,
   type Loop, type Stage, type Workflow, WORKFLOWS,
 } from "@/db/schema";
 import { runSync } from "@/lib/github";
@@ -226,8 +226,47 @@ export async function addContact(input: { orgId: number; name: string; handle?: 
 
 export async function touchContact(id: number): Promise<ActionResult> {
   await requireAuth();
-  await db.update(contacts).set({ lastContactAt: new Date().toISOString() }).where(eq(contacts.id, id));
+  await db.update(contacts).set({ lastContactAt: new Date().toISOString(), followUpAt: null, followUpNote: null }).where(eq(contacts.id, id));
   return done("Noted.");
+}
+
+/** Remind yourself to reach out again. Pass days = 0 to clear. */
+export async function setFollowUp(id: number, input: { days: number; note?: string }): Promise<ActionResult> {
+  await requireAuth();
+  if (!Number.isFinite(input.days) || input.days < 0 || input.days > 365) return fail("Pick a number of days between 1 and 365.");
+  if (input.days === 0) {
+    await db.update(contacts).set({ followUpAt: null, followUpNote: null }).where(eq(contacts.id, id));
+    return done("Reminder cleared.");
+  }
+  const at = new Date(Date.now() + Math.round(input.days) * 86_400_000).toISOString().slice(0, 10);
+  await db.update(contacts).set({ followUpAt: at, followUpNote: input.note?.trim() || null }).where(eq(contacts.id, id));
+  return done(`Reminder set for ${at}.`);
+}
+
+/** Hide a Today action until a number of days from now. */
+export async function snoozeAction(actionId: string, days: number): Promise<ActionResult> {
+  await requireAuth();
+  if (!actionId || !Number.isFinite(days) || days <= 0 || days > 365) return fail("Pick how long to snooze.");
+  const until = new Date(Date.now() + days * 86_400_000).toISOString();
+  await db.insert(snoozes).values({ actionId, until }).onConflictDoUpdate({ target: snoozes.actionId, set: { until } });
+  return done(days === 1 ? "Snoozed until tomorrow." : `Snoozed for ${days} days.`);
+}
+
+export async function clearSnoozes(): Promise<ActionResult> {
+  await requireAuth();
+  await db.delete(snoozes);
+  return done("Snoozed items are back on the list.");
+}
+
+/** Tick or untick a pre-PR checklist item for one loop. */
+export async function toggleLoopCheck(loopId: number, item: string): Promise<ActionResult> {
+  await requireAuth();
+  const { loop } = await loadLoop(loopId);
+  const current = loop.checked ?? [];
+  const next = current.includes(item) ? current.filter((c) => c !== item) : [...current, item];
+  await db.update(loops).set({ checked: next }).where(eq(loops.id, loopId));
+  revalidatePath("/", "layout");
+  return { ok: true, message: "" };
 }
 
 export async function addProgramEvent(input: { programId: string; title: string; date: string; kind: "open" | "deadline" | "announce" | "coding" | "result" }): Promise<ActionResult> {

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, gte, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { contacts, events, inbox, loops, orgs, programEvents, programs, repos, settings } from "@/db/schema";
+import { contacts, events, inbox, loops, orgs, programEvents, programs, repos, settings, snoozes } from "@/db/schema";
 import { computeActions } from "./next-actions";
 import { groupByProgram } from "./programs";
 import { dailyActivity, presenceLevel, presenceScore } from "./presence";
@@ -34,12 +34,15 @@ export async function getNetwork() {
   const list = await getRepoList();
   const repoIds = list.map((r) => r.repo.id);
   const since = new Date(Date.now() - 60 * DAY).toISOString();
-  const [loopRows, eventRows, inboxRows] = await Promise.all([
+  const nowIso = new Date().toISOString();
+  const [loopRows, eventRows, inboxRows, contactRows, snoozeRows] = await Promise.all([
     repoIds.length ? db.select().from(loops).where(inArray(loops.repoId, repoIds)).orderBy(asc(loops.createdAt)) : [],
     repoIds.length
       ? db.select().from(events).where(and(inArray(events.repoId, repoIds), gte(events.occurredAt, since))).orderBy(desc(events.occurredAt))
       : [],
     db.select().from(inbox).where(eq(inbox.status, "new")).orderBy(desc(inbox.receivedAt)),
+    db.select().from(contacts),
+    db.select().from(snoozes).where(gte(snoozes.until, nowIso)),
   ]);
 
   const lines = list.map(({ repo, org, program }) => {
@@ -56,12 +59,16 @@ export async function getNetwork() {
     };
   });
 
-  const { actions, waiting } = computeActions(
+  const { actions: allActions, waiting } = computeActions(
     list.map((l) => l.repo),
     loopRows,
     eventRows,
     inboxRows,
+    Date.now(),
+    contactRows,
   );
+  const snoozed = new Set(snoozeRows.map((s) => s.actionId));
+  const actions = allActions.filter((a) => !snoozed.has(a.id));
   const activeIds = new Set(loopRows.filter((l) => l.status === "active").map((l) => l.id));
   const programRows = await db.select().from(programs).orderBy(asc(programs.name));
   return {
@@ -70,6 +77,7 @@ export async function getNetwork() {
     groups: groupByProgram(lines, programRows),
     programs: programRows,
     actions,
+    snoozedCount: allActions.length - actions.length,
     waiting,
     inboxCount: inboxRows.length,
     loopEvents: eventRows.filter((e) => e.loopId && activeIds.has(e.loopId)),
@@ -156,4 +164,47 @@ export async function getIntegrationStatus() {
     ingestSecretConfigured: Boolean(process.env.INGEST_SECRET),
     demo: demo === "true",
   };
+}
+
+export type PortfolioPr = { title: string; number: number; url: string; status: "merged" | "open" | "closed"; at: string | null };
+export type PortfolioRepo = {
+  repoId: number; slug: string; code: string; colorIndex: number; owner: string; name: string; orgName: string;
+  language: string | null; prs: PortfolioPr[]; reviews: number; issues: number; helped: number;
+};
+
+/** Everything you have done, across every repo you have ever tracked. */
+export async function getPortfolio() {
+  const [rows, loopRows, eventRows] = await Promise.all([
+    db.select({ repo: repos, org: orgs }).from(repos).innerJoin(orgs, eq(repos.orgId, orgs.id)).orderBy(asc(repos.colorIndex), asc(repos.id)),
+    db.select().from(loops),
+    db.select().from(events).orderBy(desc(events.occurredAt)),
+  ]);
+  const perRepo: PortfolioRepo[] = rows.map(({ repo, org }) => {
+    const prs = loopRows
+      .filter((l) => l.repoId === repo.id && l.prNumber)
+      .map<PortfolioPr>((l) => ({
+        title: l.title,
+        number: l.prNumber!,
+        url: `https://github.com/${repo.owner}/${repo.name}/pull/${l.prNumber}`,
+        status: l.stage === "merged" ? "merged" : l.status === "dropped" ? "closed" : "open",
+        at: l.mergedAt ?? l.prAt,
+      }))
+      .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
+    const mine = eventRows.filter((e) => e.repoId === repo.id);
+    return {
+      repoId: repo.id, slug: repo.slug, code: repo.code, colorIndex: repo.colorIndex, owner: repo.owner, name: repo.name, orgName: org.name,
+      language: repo.rules?.language ?? null,
+      prs,
+      reviews: mine.filter((e) => e.kind === "review-given").length,
+      issues: mine.filter((e) => e.kind === "issue").length,
+      helped: mine.filter((e) => e.kind === "help").length,
+    };
+  });
+  const byRepo = new Map(perRepo.map((r) => [r.repoId, r]));
+  const HISTORY = new Set(["pr", "merged", "issue", "review-given", "help"]);
+  const history = eventRows
+    .filter((e) => HISTORY.has(e.kind) && byRepo.has(e.repoId))
+    .slice(0, 80)
+    .map((e) => ({ id: e.id, kind: e.kind, title: e.title, url: e.url, occurredAt: e.occurredAt, repo: byRepo.get(e.repoId)! }));
+  return { repos: perRepo, history };
 }

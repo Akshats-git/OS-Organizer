@@ -12,7 +12,7 @@ export function useAction() {
     start(async () => {
       try {
         const r = await fn();
-        toast(r.message, r.ok ? "ok" : "error");
+        if (r.message) toast(r.message, r.ok ? "ok" : "error");
         if (r.ok) onOk?.(r);
       } catch (err) {
         toast((err as Error).message || "Something went wrong. Check the server log.", "error");

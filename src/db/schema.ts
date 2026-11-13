@@ -48,6 +48,8 @@ export type RepoRules = {
   changelog?: boolean;
   /** Checklist lines lifted from the PR template, plus your own. */
   checklist?: string[];
+  /** Primary language reported by GitHub. null once checked and none was found. */
+  language?: string | null;
   fetchedAt?: string;
 };
 
@@ -107,6 +109,8 @@ export const loops = sqliteTable("loops", {
   ciState: text("ci_state", { enum: ["pending", "success", "failure"] }),
   hasConflict: integer("has_conflict", { mode: "boolean" }).notNull().default(false),
   lastMaintainerAt: text("last_maintainer_at"),
+  /** Pre-PR checklist items ticked for this loop. */
+  checked: text("checked", { mode: "json" }).$type<string[]>(),
   /** URL of someone else's PR that targets the same issue. */
   collisionUrl: text("collision_url"),
   mergedAt: text("merged_at"),
@@ -177,6 +181,16 @@ export const contacts = sqliteTable("contacts", {
   timezone: text("timezone"),
   notes: text("notes"),
   lastContactAt: text("last_contact_at"),
+  /** When to reach out again, and what about. */
+  followUpAt: text("follow_up_at"), // YYYY-MM-DD
+  followUpNote: text("follow_up_note"),
+});
+
+/** Today actions you chose to hide until a date. */
+export const snoozes = sqliteTable("snoozes", {
+  actionId: text("action_id").primaryKey(),
+  until: text("until").notNull(), // ISO timestamp
+  createdAt: text("created_at").notNull().default(now),
 });
 
 export const settings = sqliteTable("settings", {

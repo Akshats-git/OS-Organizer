@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { ActionList, WaitingList, type RepoChip } from "@/components/action-list";
+import { ActionList, SnoozedNote, WaitingList, type RepoChip } from "@/components/action-list";
 import { DemoBanner } from "@/components/demo-banner";
 import { LineBullet } from "@/components/line-bullet";
 import { LoopSheet } from "@/components/loop-sheet";
@@ -12,7 +12,7 @@ import { age, daysUntil, formatDate } from "@/lib/time";
 
 export default async function TodayPage() {
   await connection();
-  const [{ lines, groups, actions, waiting, loopEvents }, upcoming, status] = await Promise.all([getNetwork(), getUpcoming(4), getIntegrationStatus()]);
+  const [{ lines, groups, actions, snoozedCount, waiting, loopEvents }, upcoming, status] = await Promise.all([getNetwork(), getUpcoming(4), getIntegrationStatus()]);
 
   const repos: RepoChip[] = lines.map((l) => ({ id: l.repo.id, code: l.repo.code, colorIndex: l.repo.colorIndex, name: l.repo.name }));
   const ages = Object.fromEntries([...actions, ...waiting].map((a) => [a.id, age(a.since)]));
@@ -46,7 +46,10 @@ export default async function TodayPage() {
               <Link href="/lines?add=1" className="btn btn-primary mt-5">Add a repo</Link>
             </div>
           ) : (
-            <ActionList actions={actions} repos={repos} ages={ages} />
+            <>
+              <ActionList actions={actions} repos={repos} ages={ages} />
+              <SnoozedNote count={snoozedCount} />
+            </>
           )}
 
           {lines.length > 0 && (

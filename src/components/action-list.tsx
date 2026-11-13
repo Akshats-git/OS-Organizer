@@ -1,14 +1,16 @@
 "use client";
 
 import clsx from "clsx";
-import { Check, Clock, Compass, Copy, ExternalLink, TriangleAlert } from "lucide-react";
+import { BellOff, Check, Clock, Compass, Copy, ExternalLink, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { clearSnoozes, snoozeAction } from "@/app/actions";
 import type { Action, Tone, Waiting } from "@/lib/next-actions";
 import { LineBullet } from "./line-bullet";
 import { useToast } from "./toast";
+import { useAction } from "./use-action";
 
 export type RepoChip = { id: number; code: string; colorIndex: number; name: string };
 
@@ -17,6 +19,25 @@ const GROUPS: { tone: Tone; title: string; icon: typeof Clock; style: string }[]
   { tone: "soon", title: "This week", icon: Clock, style: "text-soon" },
   { tone: "nudge", title: "When you have time", icon: Compass, style: "text-ink-2" },
 ];
+
+const SNOOZE = [
+  { days: 1, label: "1 day" },
+  { days: 3, label: "3 days" },
+  { days: 7, label: "1 week" },
+  { days: 30, label: "30 days" },
+];
+
+/** Shows how many actions are snoozed, with a way to bring them back. */
+export function SnoozedNote({ count }: { count: number }) {
+  const { run, pending } = useAction();
+  if (!count) return null;
+  return (
+    <p className="mt-6 text-sm text-ink-3">
+      {count} snoozed.{" "}
+      <button disabled={pending} onClick={() => run(clearSnoozes)} className="link text-ink-2">Bring back</button>
+    </p>
+  );
+}
 
 export function ActionList({ actions, repos, ages }: { actions: Action[]; repos: RepoChip[]; ages: Record<string, string> }) {
   const byId = new Map(repos.map((r) => [r.id, r]));
@@ -66,6 +87,8 @@ export function ActionList({ actions, repos, ages }: { actions: Action[]; repos:
 function ActionRow({ action: a, repo, since, onDone }: { action: Action; repo?: RepoChip; since?: string; onDone: () => void }) {
   const toast = useToast();
   const pathname = usePathname();
+  const { run, pending } = useAction();
+  const [snoozing, setSnoozing] = useState(false);
   const external = a.href?.startsWith("http");
 
   const copy = async () => {
@@ -82,9 +105,9 @@ function ActionRow({ action: a, repo, since, onDone }: { action: Action; repo?: 
     <motion.li
       layout
       exit={{ opacity: 0, x: 24, transition: { duration: 0.18 } }}
-      className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+      className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:px-5"
     >
-      <div className="flex min-w-0 flex-1 gap-3.5">
+      <div className="flex min-w-0 flex-1 basis-0 gap-3.5">
         {repo ? <LineBullet code={repo.code} colorIndex={repo.colorIndex} className="mt-0.5" /> : <span className="size-7 shrink-0" />}
         <div className="min-w-0">
           {a.loopId ? (
@@ -111,10 +134,20 @@ function ActionRow({ action: a, repo, since, onDone }: { action: Action; repo?: 
         ) : (
           <Link href={a.href} className="btn btn-quiet">{a.cta}</Link>
         ))}
-        <button onClick={onDone} className="btn btn-ghost" aria-label="Hide until next visit" title="Hide until next visit">
-          <Check className="size-4" />
+        <button onClick={() => setSnoozing((v) => !v)} aria-expanded={snoozing} className="btn btn-ghost" aria-label="Snooze or dismiss" title="Snooze or dismiss">
+          <BellOff className="size-4" />
         </button>
       </div>
+      {snoozing && (
+        <div role="group" aria-label="Snooze for" className="flex flex-wrap items-center gap-1.5 pl-[42px] sm:basis-full sm:pl-[42px]">
+          <span className="mr-1 text-xs text-ink-3">Hide for</span>
+          {SNOOZE.map((o) => (
+            <button key={o.days} disabled={pending} onClick={() => run(() => snoozeAction(a.id, o.days), onDone)} className="btn btn-quiet text-xs">
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
     </motion.li>
   );
 }

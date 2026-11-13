@@ -72,29 +72,55 @@ function forwardLabelled() {
   var threads = label.getThreads(0, 20);
 
   threads.forEach(function (thread) {
-    var message = thread.getMessages().pop();
-    var payload = {
-      source: "gmail",
-      externalId: message.getId(),
-      title: message.getSubject() || "(no subject)",
-      body: message.getPlainBody().slice(0, 4000),
-      url: "https://mail.google.com/mail/u/0/#all/" + thread.getId(),
-      author: message.getFrom(),
-      context: message.getHeader("List-Id") || message.getHeader("X-GitHub-Reason") || null,
-      receivedAt: message.getDate().toISOString(),
-    };
-    var res = UrlFetchApp.fetch(appUrl + "/api/inbox", {
-      method: "post",
-      contentType: "application/json",
-      headers: { "x-ingest-secret": secret },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true,
+    // Send every recent message, not just the last: several replies can land between runs.
+    // The app ignores messages it already has (they are keyed by message id).
+    var messages = thread.getMessages().slice(-10);
+    var ok = messages.every(function (message) {
+      return forwardMessage(message, thread, c);
     });
-    if (res.getResponseCode() === 200) {
+    if (ok) {
       thread.removeLabel(label);
       thread.addLabel(done);
-    } else {
-      console.warn("OS Organizer rejected a thread: " + res.getResponseCode() + " " + res.getContentText());
     }
   });
+}
+
+/** GitHub links in the whole body, so the repo can be identified even when the text is cut. */
+function githubLinks(text) {
+  var seen = {};
+  var out = [];
+  (text.match(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\/(?:issues|pull)\/\d+)?/g) || []).forEach(function (u) {
+    if (!seen[u]) {
+      seen[u] = true;
+      out.push(u);
+    }
+  });
+  return out.slice(0, 5);
+}
+
+function forwardMessage(message, thread, c) {
+  var plain = message.getPlainBody();
+  var links = githubLinks(plain);
+  var payload = {
+    source: "gmail",
+    externalId: message.getId(),
+    title: (message.getSubject() || "(no subject)").slice(0, 400),
+    body: (plain.slice(0, 3800) + (links.length ? "\n\n" + links.join("\n") : "")).slice(0, 7900),
+    url: "https://mail.google.com/mail/u/0/#all/" + thread.getId(),
+    author: (message.getFrom() || "").slice(0, 190),
+    context: (message.getHeader("List-Id") || message.getHeader("X-GitHub-Reason") || "").slice(0, 280) || null,
+    receivedAt: message.getDate().toISOString(),
+  };
+  var res = UrlFetchApp.fetch(c.appUrl + "/api/inbox", {
+    method: "post",
+    contentType: "application/json",
+    headers: { "x-ingest-secret": c.secret },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() !== 200) {
+    console.warn("OS Organizer rejected a message: " + res.getResponseCode() + " " + res.getContentText());
+    return false;
+  }
+  return true;
 }

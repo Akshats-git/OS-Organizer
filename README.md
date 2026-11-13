@@ -7,9 +7,10 @@ Every repo you target is a **line**. Every contribution is a **loop** that trave
 
 ## What it does
 
-- **Today**: what needs you now, ranked. Covers review comments, failing checks, merge conflicts, claims about to lapse, asks with no reply, PRs waiting past the repo's usual reply time, and lines going cold. Includes a "Copy message" draft for polite follow-ups.
+- **Today**: what needs you now, ranked. Covers review comments, failing checks, merge conflicts, claims about to lapse, asks with no reply, PRs waiting past the repo's usual reply time, and lines going cold. Includes a "Copy message" draft for polite follow-ups. Snooze or dismiss anything for 1 to 30 days, and set reminders to follow up with a person.
 - **Lines**: the network map. Select a train to move it along, link the issue or PR, or drop it.
-- **Repo pages**: timeline, presence over 8 weeks, maintainer rhythm (median time to first reply), a pre-PR checklist read from `CONTRIBUTING.md` and the PR template, people with their local time, setup notes, and a **proof pack** that copies your PRs as a Markdown table for proposals.
+- **Repo pages**: timeline, presence over 8 weeks, maintainer rhythm (median time to first reply), a pre-PR checklist read from `CONTRIBUTING.md` and the PR template (ticked per loop, so each PR keeps its own progress), people with their local time, setup notes, and a **proof pack** that copies your PRs as a Markdown table for proposals.
+- **Portfolio**: every PR, issue and review across all repos, with languages and a proposal-ready Markdown export.
 - **Inbox**: forwarded Discord messages, labelled Gmail threads and GitHub mentions. Filing one as an approval moves the waiting loop to *Approved*.
 - **Programs**: a 12-month view of every program's dates, plus an `.ics` feed with claim deadlines.
 - **⌘K**: jump anywhere, or paste a GitHub or Discord link to start a loop from it.

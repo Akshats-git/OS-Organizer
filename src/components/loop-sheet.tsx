@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { advanceLoop, clearCollision, moveLoopBack, setLoopStatus, updateLoop } from "@/app/actions";
+import { advanceLoop, clearCollision, moveLoopBack, setLoopStatus, toggleLoopCheck, updateLoop } from "@/app/actions";
 import type { Event, Loop, Repo } from "@/db/schema";
 import { ghUrl } from "@/lib/links";
 import { loopStatus } from "@/lib/loop-status";
@@ -173,6 +173,8 @@ function SheetBody({ loop, repo, events, onClose }: { loop: Loop; repo: Repo; ev
           </form>
         )}
 
+        <LoopChecklist loop={loop} items={repo.rules?.checklist ?? []} />
+
         <dl className="mt-7 divide-y divide-rule border-y border-rule text-sm">
           <Row label="Ask" value={loop.askUrl ? <a className="link" href={loop.askUrl} target="_blank" rel="noreferrer">Message</a> : null} meta={age(loop.askedAt)} />
           <Row label="Approved" value={loop.approvedBy ?? (loop.approvedAt ? "Yes" : null)} meta={age(loop.approvedAt)} href={loop.approvalUrl} />
@@ -222,6 +224,41 @@ function SheetBody({ loop, repo, events, onClose }: { loop: Loop; repo: Repo; ev
         </div>
       </div>
     </>
+  );
+}
+
+/** Pre-PR checks for this one contribution. Ticks are saved with the loop. */
+function LoopChecklist({ loop, items }: { loop: Loop; items: string[] }) {
+  const [ticked, setTicked] = useState<string[]>(loop.checked ?? []);
+  if (!items.length || loop.stage === "merged") return null;
+  const toggle = (item: string) => {
+    setTicked((t) => (t.includes(item) ? t.filter((x) => x !== item) : [...t, item]));
+    toggleLoopCheck(loop.id, item).catch(() => setTicked(loop.checked ?? []));
+  };
+  const count = items.filter((i) => ticked.includes(i)).length;
+  return (
+    <section className="mt-7" aria-labelledby="loop-checks">
+      <h3 id="loop-checks" className="flex items-baseline justify-between text-xs font-semibold text-ink-3">
+        PR checklist
+        <span className="numerals">{count}/{items.length}</span>
+      </h3>
+      <ul className="mt-2 space-y-1">
+        {items.map((item) => {
+          const on = ticked.includes(item);
+          return (
+            <li key={item}>
+              <label className="flex cursor-pointer items-start gap-2.5 py-1 text-sm">
+                <input type="checkbox" checked={on} onChange={() => toggle(item)} className="peer sr-only" />
+                <span className={clsx("mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-[5px] border-2 transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus", on ? "border-ink bg-ink text-page" : "border-rule-strong")}>
+                  {on && <Check className="size-3" strokeWidth={3.5} />}
+                </span>
+                <span className={clsx(on && "text-ink-3 line-through decoration-rule-strong")}>{item}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

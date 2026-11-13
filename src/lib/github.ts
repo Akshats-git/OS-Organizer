@@ -68,14 +68,15 @@ type PRNode = {
 type IssueNode = { number: number; title: string; url: string; state: "OPEN" | "CLOSED"; createdAt: string };
 
 const REPO_QUERY = /* GraphQL */ `
-  query RepoActivity($prs: String!, $issues: String!, $reviewed: String!) {
-    prs: search(query: $prs, type: ISSUE, first: 30) {
+  query RepoActivity($prs: String!, $issues: String!, $reviewed: String!, $prsAfter: String, $issuesAfter: String, $reviewedAfter: String, $morePrs: Boolean!, $moreIssues: Boolean!, $moreReviewed: Boolean!) {
+    prs: search(query: $prs, type: ISSUE, first: 30, after: $prsAfter) @include(if: $morePrs) {
+      pageInfo { hasNextPage endCursor }
       nodes {
         ... on PullRequest {
           number title url state merged mergedAt createdAt reviewDecision mergeable
           closingIssuesReferences(first: 5) { nodes { number } }
           commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
-          timelineItems(last: 20, itemTypes: [PULL_REQUEST_REVIEW, ISSUE_COMMENT]) {
+          timelineItems(last: 40, itemTypes: [PULL_REQUEST_REVIEW, ISSUE_COMMENT]) {
             nodes {
               __typename
               ... on PullRequestReview { author { login } submittedAt state url }
@@ -85,10 +86,12 @@ const REPO_QUERY = /* GraphQL */ `
         }
       }
     }
-    issues: search(query: $issues, type: ISSUE, first: 20) {
+    issues: search(query: $issues, type: ISSUE, first: 30, after: $issuesAfter) @include(if: $moreIssues) {
+      pageInfo { hasNextPage endCursor }
       nodes { ... on Issue { number title url state createdAt } }
     }
-    reviewed: search(query: $reviewed, type: ISSUE, first: 20) {
+    reviewed: search(query: $reviewed, type: ISSUE, first: 30, after: $reviewedAfter) @include(if: $moreReviewed) {
+      pageInfo { hasNextPage endCursor }
       nodes { ... on PullRequest { number title url updatedAt } }
     }
   }
@@ -115,6 +118,7 @@ const RULES_QUERY = /* GraphQL */ `
   query Rules($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
       url
+      primaryLanguage { name }
       c1: object(expression: "HEAD:CONTRIBUTING.md") { ... on Blob { text } }
       c2: object(expression: "HEAD:.github/CONTRIBUTING.md") { ... on Blob { text } }
       c3: object(expression: "HEAD:docs/CONTRIBUTING.md") { ... on Blob { text } }
@@ -185,16 +189,46 @@ async function addEvent(e: typeof events.$inferInsert) {
   return rows.length > 0;
 }
 
-export async function syncRepo(repo: Repo, login: string, alerts: Alerts) {
-  const full = `${repo.owner}/${repo.name}`;
-  const data = await gql<{ prs: { nodes: PRNode[] }; issues: { nodes: IssueNode[] }; reviewed: { nodes: { number: number; title: string; url: string; updatedAt: string }[] } }>(
-    REPO_QUERY,
-    {
+type Page<T> = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: T[] };
+type Activity = {
+  prs: { nodes: PRNode[] };
+  issues: { nodes: IssueNode[] };
+  reviewed: { nodes: { number: number; title: string; url: string; updatedAt: string }[] };
+};
+
+/** Search results are paged, so a busy history isn't cut off at the first 30 PRs. */
+const MAX_PAGES = 5;
+
+async function fetchActivity(full: string, login: string): Promise<Activity> {
+  const out: Activity = { prs: { nodes: [] }, issues: { nodes: [] }, reviewed: { nodes: [] } };
+  const cursor: Record<"prs" | "issues" | "reviewed", string | null | undefined> = { prs: null, issues: null, reviewed: null };
+  for (let round = 0; round < MAX_PAGES; round++) {
+    const more = { prs: cursor.prs !== undefined, issues: cursor.issues !== undefined, reviewed: cursor.reviewed !== undefined };
+    if (!more.prs && !more.issues && !more.reviewed) break;
+    const page = await gql<{ prs?: Page<PRNode>; issues?: Page<IssueNode>; reviewed?: Page<Activity["reviewed"]["nodes"][number]> }>(REPO_QUERY, {
       prs: `repo:${full} is:pr author:${login} sort:updated-desc`,
       issues: `repo:${full} is:issue author:${login} sort:updated-desc`,
       reviewed: `repo:${full} is:pr reviewed-by:${login} -author:${login} sort:updated-desc`,
-    },
-  );
+      prsAfter: cursor.prs ?? null,
+      issuesAfter: cursor.issues ?? null,
+      reviewedAfter: cursor.reviewed ?? null,
+      morePrs: more.prs,
+      moreIssues: more.issues,
+      moreReviewed: more.reviewed,
+    });
+    for (const key of ["prs", "issues", "reviewed"] as const) {
+      const p = page[key];
+      if (!p) continue;
+      (out[key].nodes as unknown[]).push(...p.nodes);
+      cursor[key] = p.pageInfo.hasNextPage ? p.pageInfo.endCursor : undefined;
+    }
+  }
+  return out;
+}
+
+export async function syncRepo(repo: Repo, login: string, alerts: Alerts) {
+  const full = `${repo.owner}/${repo.name}`;
+  const data = await fetchActivity(full, login);
 
   let repoLoops = await db.select().from(loops).where(eq(loops.repoId, repo.id));
   const prs = data.prs.nodes.filter((p) => p && p.number);
@@ -283,9 +317,9 @@ export async function syncRepo(repo: Repo, login: string, alerts: Alerts) {
   }
 
   // Rules digest and maintainer rhythm, refreshed weekly.
-  const stale = !repo.rules?.fetchedAt || Date.now() - new Date(repo.rules.fetchedAt).getTime() > WEEK;
+  const stale = !repo.rules?.fetchedAt || repo.rules.language === undefined || Date.now() - new Date(repo.rules.fetchedAt).getTime() > WEEK;
   if (stale) {
-    const r = await gql<{ repository: { url: string; c1: Blob; c2: Blob; c3: Blob; t1: Blob; t2: Blob; t3: Blob; merged: { nodes: Parameters<typeof medianFirstResponseHours>[0] } } }>(
+    const r = await gql<{ repository: { url: string; primaryLanguage: { name: string } | null; c1: Blob; c2: Blob; c3: Blob; t1: Blob; t2: Blob; t3: Blob; merged: { nodes: Parameters<typeof medianFirstResponseHours>[0] } } }>(
       RULES_QUERY,
       { owner: repo.owner, name: repo.name },
     );
@@ -293,7 +327,7 @@ export async function syncRepo(repo: Repo, login: string, alerts: Alerts) {
     const contributing = repoInfo.c1?.text ?? repoInfo.c2?.text ?? repoInfo.c3?.text ?? "";
     const path = repoInfo.c1 ? "CONTRIBUTING.md" : repoInfo.c2 ? ".github/CONTRIBUTING.md" : repoInfo.c3 ? "docs/CONTRIBUTING.md" : null;
     const template = repoInfo.t1?.text ?? repoInfo.t2?.text ?? repoInfo.t3?.text ?? "";
-    const rules = digestRules(contributing, template, repo.rules, path ? `${repoInfo.url}/blob/HEAD/${path}` : undefined);
+    const rules = { ...digestRules(contributing, template, repo.rules, path ? `${repoInfo.url}/blob/HEAD/${path}` : undefined), language: repoInfo.primaryLanguage?.name ?? null };
     await db.update(repos).set({ rules, medianReviewHours: medianFirstResponseHours(repoInfo.merged.nodes) ?? repo.medianReviewHours }).where(eq(repos.id, repo.id));
   }
 
@@ -310,21 +344,31 @@ type Notification = {
 
 const NOTIFY_REASONS = new Set(["mention", "team_mention", "review_requested", "assign"]);
 
+const NOTIFY_PAGES = 4;
+
+/** Notifications since the last run (read ones included), so nothing you opened on GitHub is lost. */
 export async function syncNotifications(tracked: Repo[]) {
-  const list = await rest<Notification[]>("/notifications?participating=true&per_page=50");
+  const last = await db.query.settings.findFirst({ where: eq(settings.key, "github.notifSince") });
+  const since = new Date(last ? new Date(last.value).getTime() - 86_400_000 : Date.now() - 30 * 86_400_000).toISOString();
+  const startedAt = new Date().toISOString();
   let added = 0;
-  for (const n of list) {
-    if (!NOTIFY_REASONS.has(n.reason)) continue;
-    const repo = tracked.find((r) => `${r.owner}/${r.name}`.toLowerCase() === n.repository.full_name.toLowerCase());
-    if (!repo) continue;
-    const url = n.subject.url?.replace("api.github.com/repos", "github.com").replace("/pulls/", "/pull/") ?? null;
-    const rows = await db
-      .insert(inbox)
-      .values({ source: "github", externalId: `${n.id}:${n.updated_at}`, title: n.subject.title, context: `${n.repository.full_name} · ${n.reason.replace("_", " ")}`, url, repoId: repo.id, receivedAt: n.updated_at })
-      .onConflictDoNothing()
-      .returning({ id: inbox.id });
-    added += rows.length;
+  for (let page = 1; page <= NOTIFY_PAGES; page++) {
+    const list = await rest<Notification[]>(`/notifications?participating=true&all=true&per_page=50&page=${page}&since=${encodeURIComponent(since)}`);
+    for (const n of list) {
+      if (!NOTIFY_REASONS.has(n.reason)) continue;
+      const repo = tracked.find((r) => `${r.owner}/${r.name}`.toLowerCase() === n.repository.full_name.toLowerCase());
+      if (!repo) continue;
+      const url = n.subject.url?.replace("api.github.com/repos", "github.com").replace("/pulls/", "/pull/") ?? null;
+      const rows = await db
+        .insert(inbox)
+        .values({ source: "github", externalId: `${n.id}:${n.updated_at}`, title: n.subject.title, context: `${n.repository.full_name} · ${n.reason.replace("_", " ")}`, url, repoId: repo.id, receivedAt: n.updated_at })
+        .onConflictDoNothing()
+        .returning({ id: inbox.id });
+      added += rows.length;
+    }
+    if (list.length < 50) break;
   }
+  await setSetting("github.notifSince", startedAt);
   return added;
 }
 

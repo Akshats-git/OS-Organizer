@@ -1,11 +1,11 @@
 "use client";
 
 import clsx from "clsx";
-import { Check, ClipboardCopy, Pencil, Plus } from "lucide-react";
+import { ClipboardCopy, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore } from "react";
-import { addContact, archiveRepo, logActivity, startLoop, touchContact, updateRepo } from "@/app/actions";
+import { useState } from "react";
+import { addContact, archiveRepo, logActivity, setFollowUp, startLoop, touchContact, updateRepo } from "@/app/actions";
 import type { Loop, Repo, Workflow } from "@/db/schema";
 import { loopStatus } from "@/lib/loop-status";
 import { WORKFLOW_LABELS } from "@/lib/stages";
@@ -63,39 +63,11 @@ export function LoopRows({ loops, repo, ages }: { loops: Loop[]; repo: Repo; age
   );
 }
 
-const tickListeners = new Set<() => void>();
-const subscribeTicks = (cb: () => void) => (tickListeners.add(cb), () => tickListeners.delete(cb));
-function readTicks(key: string) {
-  try {
-    return localStorage.getItem(key) ?? "[]";
-  } catch {
-    return "[]";
-  }
-}
-function writeTicks(key: string, next: string[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(next));
-  } catch {}
-  tickListeners.forEach((l) => l());
-}
-
-/** Pre-PR checklist. Ticks are per browser and reset with "Clear ticks" for the next PR. */
+/** The repo's pre-PR checklist. Ticks live on each loop, so this only edits the list. */
 export function Checklist({ repoId, items }: { repoId: number; items: string[] }) {
-  const key = `checklist:${repoId}`;
-  const stored = useSyncExternalStore(subscribeTicks, () => readTicks(key), () => "[]");
-  const ticked = useMemo<string[]>(() => {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return [];
-    }
-  }, [stored]);
-  const setTicked = (next: string[]) => writeTicks(key, next);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(items.join("\n"));
   const { run, pending } = useAction();
-
-  const toggle = (item: string) => setTicked(ticked.includes(item) ? ticked.filter((t) => t !== item) : [...ticked, item]);
 
   if (editing) {
     return (
@@ -120,32 +92,22 @@ export function Checklist({ repoId, items }: { repoId: number; items: string[] }
       {items.length === 0 ? (
         <p className="text-sm text-ink-3">No checks yet. Sync GitHub to read the contributing guide and PR template, or add your own.</p>
       ) : (
-        <ul className="space-y-1">
-          {items.map((item) => {
-            const on = ticked.includes(item);
-            return (
-              <li key={item}>
-                <label className="flex cursor-pointer items-start gap-2.5 rounded-md py-1 text-sm">
-                  <input type="checkbox" checked={on} onChange={() => toggle(item)} className="peer sr-only" />
-                  <span className={clsx("mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-[5px] border-2 transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus", on ? "border-ink bg-ink text-page" : "border-rule-strong")}>
-                    {on && <Check className="size-3" strokeWidth={3.5} />}
-                  </span>
-                  <span className={clsx(on && "text-ink-3 line-through decoration-rule-strong")}>{item}</span>
-                </label>
+        <>
+          <ul className="space-y-1.5 text-sm">
+            {items.map((item) => (
+              <li key={item} className="flex gap-2.5">
+                <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-rule-strong" />
+                {item}
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-3">Tick these off inside each loop, so every PR keeps its own progress.</p>
+        </>
       )}
       <div className="mt-3 flex gap-1">
         <button onClick={() => setEditing(true)} className="btn btn-ghost text-xs">
           <Pencil className="size-3.5" /> Edit
         </button>
-        {ticked.length > 0 && (
-          <button onClick={() => setTicked([])} className="btn btn-ghost text-xs">
-            Clear ticks
-          </button>
-        )}
       </div>
     </div>
   );
@@ -262,12 +224,28 @@ export function AddContact({ orgId }: { orgId: number }) {
   );
 }
 
-export function TouchContact({ id }: { id: number }) {
+export function TouchContact({ id, followUpAt }: { id: number; followUpAt?: string | null }) {
   const { run, pending } = useAction();
   return (
-    <button disabled={pending} onClick={() => run(() => touchContact(id))} className="btn btn-ghost px-2 text-xs" title="Record that you talked today">
-      Talked today
-    </button>
+    <span className="flex shrink-0 items-center gap-1">
+      <select
+        aria-label="Remind me to follow up"
+        disabled={pending}
+        value=""
+        onChange={(e) => e.target.value && run(() => setFollowUp(id, { days: Number(e.target.value) }))}
+        className="field w-auto py-1 text-xs"
+      >
+        <option value="">{followUpAt ? "Change reminder" : "Remind me"}</option>
+        <option value="3">in 3 days</option>
+        <option value="7">in 1 week</option>
+        <option value="14">in 2 weeks</option>
+        <option value="30">in 1 month</option>
+        {followUpAt && <option value="0">Clear reminder</option>}
+      </select>
+      <button disabled={pending} onClick={() => run(() => touchContact(id))} className="btn btn-ghost px-2 text-xs" title="Record that you talked today and clear any reminder">
+        Talked today
+      </button>
+    </span>
   );
 }
 

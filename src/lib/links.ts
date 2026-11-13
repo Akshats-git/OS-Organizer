@@ -37,4 +37,10 @@ export function repoFromSubject(subject: string): { owner: string; repo: string 
   return m ? { owner: m[1], repo: m[2] } : null;
 }
 
+/** "owner/repo <repo.owner.github.com>" — the List-Id header GitHub puts on notification emails. */
+export function repoFromListId(listId: string): { owner: string; repo: string } | null {
+  const m = listId.match(/^\s*"?([\w.-]+)\/([\w.-]+)"?\s*</);
+  return m ? { owner: m[1], repo: m[2] } : null;
+}
+
 export const ghUrl = (owner: string, name: string, path = "") => `https://github.com/${owner}/${name}${path}`;
